@@ -12,14 +12,14 @@
 
 ## Design Decisions to Resolve
 
-- [ ] Define how the resulting Git commit hash is linked back into journal metadata. The commit hash is unknown until commit creation, while `design.md` §21 requires metadata to be complete before committing.
-- [ ] Define whether session-level `events.jsonl` from `design.md` §16 is authoritative or a derived copy of execution-level `events.jsonl` from §15.
-- [ ] Reconcile mandatory preservation of intermediate results in §2.1 with the ability to disable intermediate-result logging in `LoggingPolicy` (§7.8).
-- [ ] Define whether `PersistenceCoordinator` controls only application-data writes or also workspace and Git file mutations (§14.14, §21.1).
-- [ ] Define how persisted-record headers apply to Markdown result files (§7.9, §15–§16).
+- [x] Define how the resulting Git commit hash is linked back into journal metadata. Resolved by the two-phase commit-linkage protocol in `design.md` §18.5 and §21.
+- [x] Define whether session-level `events.jsonl` from `design.md` §16 is authoritative or a derived copy of execution-level `events.jsonl` from §15. Resolved as a derived session projection in `design.md` §10.2 and §16.
+- [x] Reconcile mandatory preservation of intermediate results in §2.1 with the ability to disable intermediate-result logging in `LoggingPolicy` (§7.8). Resolved by requiring linkage metadata and explicit redaction records while allowing sensitive payload omission in `design.md` §16.
+- [x] Define whether `PersistenceCoordinator` controls only application-data writes or also workspace and Git file mutations (§14.14, §21.1). Resolved in `design.md` §14.14: workspace and Git mutations remain under `WorkspaceService` and `GitService`.
+- [x] Define how persisted-record headers apply to Markdown result files (§7.9, §15–§16). Resolved in `design.md` §7.9: owning structured metadata records carry the headers.
 - [ ] Select the initial UI and CLI technology; the architecture lists several interfaces but does not choose an MVP implementation.
-- [ ] Define the canonical location and synchronization rules for workspace journals (§15, §18.1, §19).
-- [ ] Clarify whether checkpoint commits are mandatory by default or optional according to policy (§18.4, §18.9, §25).
+- [x] Define the canonical location and synchronization rules for workspace journals (§15, §18.1, §19). Resolved in `design.md` §24: application data is authoritative and project-local journals are synchronized exports unless explicitly configured otherwise.
+- [x] Clarify whether checkpoint commits are mandatory by default or optional according to policy (§18.4, §18.9, §25). Resolved in `design.md` §18.4: one checkpoint per meaningful iteration unless `MANUAL` is selected.
 - [ ] Define credential-handle lifetime, memory handling, redaction, and adapter access rules (§7.6, §12.1).
 - [ ] Define the exact schema and ownership of derived indexes under `indexes/` (§15, §21).
 

@@ -2764,4 +2764,6 @@ concurrent file changes pause instead of being guessed
 
 > Normal AI work preserves every meaningful result. File-changing AI work additionally preserves every iteration as Git history.
 
-Version 12 closes the final known specification-level inconsistencies. Further findings should be treated as implementation issues or explicitly proposed design changes rather than implicit corrections.
+Version 13 incorporates the documented specification-level clarifications. Further
+findings should be treated as implementation issues or explicitly proposed design
+changes rather than implicit corrections.
