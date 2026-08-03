@@ -80,3 +80,37 @@ class ExecutionManager:
         self.store.append_jsonl(f"executions/{execution.id}/events.jsonl", [event])
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
         return execution
+
+    def execute(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
+                credential_handle: str | None = None, confirmation: bool = False):
+        """Run one adapter invocation only after connectivity/exposure validation."""
+        connectivity = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
+        execution = self.validate_connectivity(
+            execution,
+            resolved_location=connectivity.location,
+            resolved_network=connectivity.network,
+            confirmation=confirmation,
+        )
+        execution, event = transition(execution, ExecutionState.VALIDATING)
+        self._event(execution, event)
+        execution, event = transition(execution, ExecutionState.READY)
+        self._event(execution, event)
+        execution, event = transition(execution, ExecutionState.STARTING)
+        self._event(execution, event)
+        execution, event = transition(execution, ExecutionState.RUNNING)
+        self._event(execution, event)
+        try:
+            response = adapter.execute(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle)
+            execution, event = transition(execution, ExecutionState.COMPLETED)
+            self._event(execution, event)
+            return execution, response
+        except Exception as exc:
+            failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
+            failed, event = transition(failed, ExecutionState.FAILED)
+            self._event(failed, event)
+            self.store.write_yaml(f"executions/{failed.id}/metadata.yaml", record_payload(failed, record_type="EXECUTION"))
+            raise
+
+    def _event(self, execution: Execution, event: dict[str, object]) -> None:
+        self.store.append_jsonl(f"executions/{execution.id}/events.jsonl", [event])
+        self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
