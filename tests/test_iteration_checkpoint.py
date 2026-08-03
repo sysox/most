@@ -1,0 +1,23 @@
+from pathlib import Path
+import subprocess
+
+from most.models import AIIteration
+from most.workspace import WorkspaceService
+
+
+def test_iteration_checkpoint_links_commit_after_creation(tmp_path: Path):
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(["git", "init", "-q", str(repository)], check=True)
+    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True)
+    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True)
+    (repository / "file.txt").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "file.txt"], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-qm", "initial"], check=True)
+    (repository / "file.txt").write_text("changed\n", encoding="utf-8")
+    service = WorkspaceService(tmp_path / "data", repository)
+    iteration = service.create_iteration_checkpoint(
+        AIIteration(session_id="s", execution_id="e", sequence_number=1), ["file.txt"], "AI iteration 1",
+    )
+    assert iteration.status == "completed"
+    assert iteration.resulting_commit == service.git.current_commit()

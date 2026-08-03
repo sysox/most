@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 
 from .git_service import GitService
-from .models import new_id, utc_now
+from .models import AIIteration, new_id, record_payload, utc_now
 from .persistence import PersistenceCoordinator
 
 
@@ -125,6 +125,36 @@ class WorkspaceService:
         current = self.capture_workspace_state()
         if current != expected:
             raise RuntimeError("WORKSPACE_DIVERGED")
+
+    def create_iteration_checkpoint(self, iteration: AIIteration, paths: list[str], message: str) -> AIIteration:
+        """Create one checkpoint using the two-phase linkage protocol."""
+        if not self.git.is_repository():
+            raise ValueError("workspace must be a Git repository")
+        if iteration.base_commit is None:
+            iteration.base_commit = self.git.current_commit()
+        iteration.status = "ready_to_commit"
+        self.store.write_yaml(
+            f"workspaces/{iteration.session_id}/iterations/{iteration.sequence_number:04d}/iteration.yaml",
+            record_payload(iteration, record_type="AI_ITERATION"),
+        )
+        commit = self.git.checkpoint(
+            paths,
+            message=message,
+            trailers={
+                "Session": iteration.session_id,
+                "Iteration": str(iteration.sequence_number),
+                "Execution": iteration.execution_id,
+                "AI-Iteration": iteration.id,
+            },
+        )
+        iteration.resulting_commit = commit
+        iteration.status = "completed"
+        iteration.completed_at = utc_now()
+        self.store.write_yaml(
+            f"workspaces/{iteration.session_id}/iterations/{iteration.sequence_number:04d}/iteration.yaml",
+            record_payload(iteration, record_type="AI_ITERATION"),
+        )
+        return iteration
 
     def _read_lease(self, relative: str) -> WorkspaceLease | None:
         import yaml
