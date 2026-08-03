@@ -175,19 +175,26 @@ class ExecutionManager:
         return execution
 
     def validate_connectivity(self, execution: Execution, *, resolved_location: str, resolved_network: str | None,
-                              confirmation: bool = False) -> Execution:
+                              confirmation: bool = False, resolved_confidence: str | None = None,
+                              evidence: tuple[str, ...] = ()) -> Execution:
         configuration = execution.configuration_snapshot
-        resolution = evaluate_exposure(configuration["location"], configuration.get("network"), resolved_location, resolved_network, confirmation=confirmation)
+        resolution = evaluate_exposure(
+            configuration["location"], configuration.get("network"), resolved_location, resolved_network,
+            confirmation=confirmation, resolved_confidence=resolved_confidence,
+        )
         if resolution.action.value == "FAIL":
             raise PermissionError(resolution.reason)
-        return replace(execution, resolved_connectivity={"location": resolved_location, "network": resolved_network, "action": resolution.action.value})
+        return replace(execution, resolved_connectivity={
+            "location": resolved_location, "network": resolved_network,
+            "confidence": resolved_confidence, "evidence": list(evidence),
+            "action": resolution.action.value,
+        })
 
     def start(self, execution: Execution) -> Execution:
         execution, event = transition(execution, ExecutionState.VALIDATING)
-        self.store.append_jsonl(f"executions/{execution.id}/events.jsonl", [event])
+        self._event(execution, event)
         execution, event = transition(execution, ExecutionState.READY)
-        self.store.append_jsonl(f"executions/{execution.id}/events.jsonl", [event])
-        self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
+        self._event(execution, event)
         return execution
 
     def execute(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
@@ -199,6 +206,8 @@ class ExecutionManager:
             resolved_location=connectivity.location,
             resolved_network=connectivity.network,
             confirmation=confirmation,
+            resolved_confidence=connectivity.confidence,
+            evidence=connectivity.evidence,
         )
         execution, event = transition(execution, ExecutionState.VALIDATING)
         self._event(execution, event)

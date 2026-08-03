@@ -42,6 +42,11 @@ def test_policy_precedence_and_exposure_failure():
     assert result.action.value == "FAIL"
 
 
+def test_unknown_connectivity_fails_closed():
+    result = evaluate_exposure("local", "localhost", "unknown", None, resolved_confidence="UNKNOWN")
+    assert result.action.value == "FAIL"
+
+
 def test_jsonl_recovery_ignores_incomplete_final_line(tmp_path: Path):
     store = PersistenceCoordinator(tmp_path)
     store.append_jsonl("events.jsonl", [{"record": 1}])

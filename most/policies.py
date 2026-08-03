@@ -20,7 +20,13 @@ def resolve_overflow_policy(request_override: OverflowPolicy | None, configurati
 
 def evaluate_exposure(declared_location: str, declared_network: str | None,
                       resolved_location: str, resolved_network: str | None,
-                      allowed: bool = False, confirmation: bool = False) -> ExposureResolution:
+                      allowed: bool = False, confirmation: bool = False,
+                      resolved_confidence: str | None = None) -> ExposureResolution:
+    uncertain = resolved_confidence == "UNKNOWN" or resolved_location == "unknown" or resolved_network == "unknown"
+    if uncertain:
+        if allowed or confirmation:
+            return ExposureResolution(ExposureAction.ALLOW_BY_POLICY, "unknown connectivity explicitly approved")
+        return ExposureResolution(ExposureAction.FAIL, "unknown connectivity is unsafe by default")
     changed = (declared_location, declared_network) != (resolved_location, resolved_network)
     exposure_increased = changed and (
         declared_location in {"local", "remote-private"}
@@ -33,5 +39,5 @@ def evaluate_exposure(declared_location: str, declared_network: str | None,
     if allowed:
         return ExposureResolution(ExposureAction.ALLOW_BY_POLICY, "explicit stored rule matched")
     if confirmation:
-        return ExposureResolution(ExposureAction.REQUIRE_CONFIRMATION, "exposure-increasing transition requires approval")
+        return ExposureResolution(ExposureAction.ALLOW_BY_POLICY, "exposure-increasing transition explicitly approved")
     return ExposureResolution(ExposureAction.FAIL, "exposure-increasing transition is not allowed")
