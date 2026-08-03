@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
 
@@ -16,12 +16,48 @@ class Observability(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class CapabilitySet:
+    values: frozenset[str] = frozenset()
+
+    def contains(self, capability: str) -> bool:
+        return capability in self.values
+
+
+@dataclass(frozen=True, slots=True)
+class EffectiveCapabilities:
+    values: frozenset[str]
+    restrictions_applied: frozenset[str] = frozenset()
+
+
+def compute_effective_capabilities(declared: CapabilitySet, discovered: CapabilitySet | None = None,
+                                   restrictions: CapabilitySet | None = None) -> EffectiveCapabilities:
+    available = discovered.values if discovered and discovered.values else declared.values
+    blocked = restrictions.values if restrictions else frozenset()
+    return EffectiveCapabilities(frozenset(available - blocked), frozenset(blocked))
+
+
+@dataclass(frozen=True, slots=True)
 class Connectivity:
     endpoint: str | None
     location: str
     network: str | None
     confidence: str
     evidence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AdapterExecutionContext:
+    execution_id: str
+    request_snapshot: dict[str, Any]
+    configuration_snapshot: dict[str, Any]
+    effective_capabilities: EffectiveCapabilities
+    context_assembly_record: dict[str, Any]
+    resolved_connectivity: Connectivity
+    credential_handle: str | None
+    workspace_scope: tuple[str, ...]
+    cancellation_handle: Any = None
+    event_sink: Any = None
+    platform_services: Any = None
 
 
 class Adapter(Protocol):
@@ -47,3 +83,9 @@ class AdapterRegistry:
 
     def types(self) -> tuple[str, ...]:
         return tuple(sorted(self._adapters))
+
+    def validate_configuration(self, adapter_type: str, configuration: dict[str, Any]) -> list[str]:
+        return self.get(adapter_type).validate_configuration(configuration)
+
+    def get_observability_profile(self, adapter_type: str, configuration: dict[str, Any]) -> Observability:
+        return self.get(adapter_type).get_observability_profile(configuration)
