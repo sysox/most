@@ -103,6 +103,21 @@ class GitService:
         self.run("commit", "-m", full_message)
         return self.current_commit()
 
+    def stash_push(self, message: str) -> str:
+        result = self.run("stash", "push", "--include-untracked", "-m", message)
+        if "No local changes" in result.stdout:
+            raise RuntimeError("no user changes available for snapshot")
+        listing = self.run("stash", "list", "-1", "--format=%gd").stdout.strip()
+        if not listing:
+            raise RuntimeError("stash was not created")
+        return listing
+
+    def apply_patch_file(self, patch_path: Path) -> GitResult:
+        patch_path = patch_path.resolve()
+        if not patch_path.is_file():
+            raise FileNotFoundError(patch_path)
+        return self.run("apply", "--whitespace=nowarn", str(patch_path))
+
     @staticmethod
     def _validate_ref(value: str) -> None:
         if not value or value.startswith("-") or ".." in value or "@{" in value:

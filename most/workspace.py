@@ -41,6 +41,7 @@ class WorkspaceIsolation:
     base_commit: str
     branch: str | None
     dirty_status: str
+    user_snapshot_reference: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,29 +89,41 @@ class WorkspaceService:
         }
 
     def prepare_ai_workspace(self, session_id: str, destination: Path | None = None,
-                             policy: DirtyTreePolicy = DirtyTreePolicy.ISOLATE_FROM_HEAD) -> WorkspaceIsolation:
+                             policy: DirtyTreePolicy = DirtyTreePolicy.ISOLATE_FROM_HEAD,
+                             *, confirmation: bool = False, snapshot_patch: Path | None = None) -> WorkspaceIsolation:
         if not self.git.is_repository():
             raise ValueError("workspace must be an existing Git repository")
         status = self.git.status()
         base = self.git.current_commit()
         if status and policy is DirtyTreePolicy.REQUIRE_CLEAN:
             raise RuntimeError("working tree is not clean")
+        snapshot_reference = None
         if status and policy is DirtyTreePolicy.STASH_WITH_CONFIRMATION:
-            raise RuntimeError("dirty-tree stashing requires explicit confirmation")
-        if status and policy is DirtyTreePolicy.IMPORT_USER_SNAPSHOT:
-            raise RuntimeError("user snapshot import requires explicit selection")
+            if not confirmation:
+                raise PermissionError("dirty-tree stashing requires explicit confirmation")
+            snapshot_reference = self.git.stash_push(f"most user baseline {session_id}")
+            status = self.git.status()
+        if policy is DirtyTreePolicy.IMPORT_USER_SNAPSHOT and (not confirmation or snapshot_patch is None):
+            raise PermissionError("user snapshot import requires explicit confirmation and a patch")
         if destination is None:
             destination = self.store.root / "temporary-workspaces" / session_id
         branch = f"ai/{session_id}"
         if policy is DirtyTreePolicy.ISOLATE_FROM_HEAD:
             try:
                 self.git.create_worktree(destination, branch, base)
-                return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status)
+                return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status, snapshot_reference)
             except RuntimeError:
                 if destination.exists():
                     raise
                 self.git.create_isolated_clone(destination, branch, base)
-                return WorkspaceIsolation("ISOLATED_TEMPORARY_CLONE", destination, base, branch, status)
+                return WorkspaceIsolation("ISOLATED_TEMPORARY_CLONE", destination, base, branch, status, snapshot_reference)
+        if policy is DirtyTreePolicy.STASH_WITH_CONFIRMATION:
+            self.git.create_worktree(destination, branch, base)
+            return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status, snapshot_reference)
+        if policy is DirtyTreePolicy.IMPORT_USER_SNAPSHOT:
+            self.git.create_worktree(destination, branch, base)
+            GitService(destination).apply_patch_file(snapshot_patch)  # type: ignore[arg-type]
+            return WorkspaceIsolation("DEDICATED_WORKTREE_WITH_IMPORTED_SNAPSHOT", destination, base, branch, status, str(snapshot_patch))
         return WorkspaceIsolation("CURRENT_REPOSITORY", self.repository, base, None, status)
 
     def capture_workspace_state(self) -> WorkspaceState:
