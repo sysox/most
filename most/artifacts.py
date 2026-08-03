@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -17,9 +19,17 @@ class ArtifactStore:
         target = self.root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
-            temporary = target.with_name(f".{target.name}.tmp")
-            shutil.copyfile(source, temporary)
-            temporary.replace(target)
+            fd, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+            temporary = Path(temporary_name)
+            try:
+                with os.fdopen(fd, "wb") as handle, source.open("rb") as input_handle:
+                    shutil.copyfileobj(input_handle, handle)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary, target)
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
         return {
             "sha256": digest,
             "media_type": media_type,
