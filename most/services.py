@@ -13,6 +13,7 @@ from .adapters import (
     immutable_snapshot,
 )
 from .context import apply_overflow_policy, assemble_context, estimate_tokens
+from .events import StreamEvent, create_stream_event
 from .execution import transition
 from .journal import JournalService
 from .models import (
@@ -285,6 +286,56 @@ class ExecutionManager:
             failed, event = transition(failed, ExecutionState.FAILED)
             self._event(failed, event)
             self.store.write_yaml(f"executions/{failed.id}/metadata.yaml", record_payload(failed, record_type="EXECUTION"))
+            raise
+
+    def stream(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
+               credential_handle: str | None = None, confirmation: bool = False) -> tuple[Execution, list[StreamEvent]]:
+        """Run a structured adapter stream and persist every observed event."""
+        declared = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
+        connectivity = declared
+        if declared.endpoint:
+            connectivity = self.network_inspector.inspect(declared.endpoint, declared.location, declared.network)
+        execution = self.validate_connectivity(
+            execution,
+            resolved_location=connectivity.location,
+            resolved_network=connectivity.network,
+            confirmation=confirmation,
+            resolved_confidence=connectivity.confidence,
+            evidence=connectivity.evidence,
+        )
+        for target in (ExecutionState.VALIDATING, ExecutionState.READY, ExecutionState.STARTING, ExecutionState.RUNNING, ExecutionState.STREAMING):
+            execution, status_event = transition(execution, target)
+            self._event(execution, status_event)
+        observed: list[StreamEvent] = []
+        previous_hash = None
+        try:
+            for item in adapter.stream(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle):
+                event = create_stream_event(
+                    execution.id,
+                    len(self.store.read_jsonl(f"executions/{execution.id}/events.jsonl")) + 1,
+                    str(item.get("event_type", "TextDeltaEvent")),
+                    dict(item),
+                    str(item.get("observation_source", "PROVIDER_EVENT")),
+                    previous_hash,
+                )
+                observed.append(event)
+                previous_hash = event.event_hash
+                self.store.append_versioned_jsonl(
+                    f"executions/{execution.id}/events.jsonl", [event.__dict__ if hasattr(event, "__dict__") else {
+                        "event_id": event.event_id, "execution_id": event.execution_id,
+                        "sequence_number": event.sequence_number, "event_type": event.event_type,
+                        "created_at": event.created_at, "observation_source": event.observation_source,
+                        "payload": event.payload, "previous_event_hash": event.previous_event_hash,
+                        "event_hash": event.event_hash,
+                    }], record_type="STREAM_EVENT",
+                )
+            execution, status_event = transition(execution, ExecutionState.COMPLETED)
+            self._event(execution, status_event)
+            return execution, observed
+        except Exception as exc:
+            failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
+            failed, status_event = transition(failed, ExecutionState.FAILED)
+            self._event(failed, status_event)
             raise
 
     def cancel(self, execution: Execution, reason: str = "user_requested") -> Execution:
