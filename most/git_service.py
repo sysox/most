@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +53,35 @@ class GitService:
         destination = destination.resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
         return self.run("worktree", "add", "-b", branch, str(destination), start_point)
+
+    def create_isolated_clone(self, destination: Path, branch: str, start_point: str = "HEAD") -> GitResult:
+        self._validate_ref(branch)
+        destination = destination.resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        completed = subprocess.run(
+            ["git", "clone", "--no-hardlinks", str(self.repository), str(destination)],
+            text=True, capture_output=True, check=False,
+        )
+        if completed.returncode:
+            raise RuntimeError(f"git clone failed ({completed.returncode}): {completed.stderr.strip()}")
+        clone = GitService(destination)
+        clone.run("switch", "--create", branch, start_point)
+        return GitResult(("git", "clone", "--no-hardlinks"), completed.returncode, completed.stdout, completed.stderr)
+
+    def inspect_submodules(self) -> dict[str, object]:
+        result = subprocess.run(["git", "submodule", "status", "--recursive"], cwd=self.repository, text=True, capture_output=True, check=False)
+        return {"available": result.returncode == 0, "status": result.stdout, "error": result.stderr if result.returncode else None}
+
+    def inspect_lfs(self) -> dict[str, object]:
+        if shutil.which("git-lfs") is None:
+            return {"available": False, "required": False, "reason": "git-lfs executable unavailable"}
+        result = subprocess.run(["git", "lfs", "ls-files"], cwd=self.repository, text=True, capture_output=True, check=False)
+        return {"available": result.returncode == 0, "required": bool(result.stdout.strip()), "files": result.stdout.splitlines()}
+
+    def check_path_length_support(self, candidate: Path, max_length: int = 240) -> dict[str, object]:
+        longest = max((len(str(path)) for path in candidate.rglob("*") if path.exists()), default=len(str(candidate)))
+        supported = os.name != "nt" or longest <= max_length
+        return {"supported": supported, "longest_path": longest, "limit": max_length}
 
     def checkpoint(self, paths: list[str], *, message: str, trailers: dict[str, str]) -> str:
         if not paths:

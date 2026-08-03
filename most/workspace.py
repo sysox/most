@@ -101,8 +101,14 @@ class WorkspaceService:
             destination = self.store.root / "temporary-workspaces" / session_id
         branch = f"ai/{session_id}"
         if policy is DirtyTreePolicy.ISOLATE_FROM_HEAD:
-            self.git.create_worktree(destination, branch, base)
-            return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status)
+            try:
+                self.git.create_worktree(destination, branch, base)
+                return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status)
+            except RuntimeError:
+                if destination.exists():
+                    raise
+                self.git.create_isolated_clone(destination, branch, base)
+                return WorkspaceIsolation("ISOLATED_TEMPORARY_CLONE", destination, base, branch, status)
         return WorkspaceIsolation("CURRENT_REPOSITORY", self.repository, base, None, status)
 
     def capture_workspace_state(self) -> WorkspaceState:
