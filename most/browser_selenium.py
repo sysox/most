@@ -16,6 +16,9 @@ class SeleniumFirefoxDriver:
             raise RuntimeError("browser support requires: uv sync --extra browser") from exc
         profile = profile.resolve()
         profile.mkdir(parents=True, exist_ok=True)
+        preferences = profile / "prefs.js"
+        if not preferences.exists():
+            preferences.write_text("", encoding="utf-8")
         options = Options()
         options.add_argument("-profile")
         options.add_argument(str(profile))
