@@ -33,7 +33,7 @@ from .models import (
 )
 from .network import NetworkInspector
 from .persistence import PersistenceCoordinator
-from .policies import evaluate_exposure
+from .policies import PolicyOverrides, evaluate_exposure, resolve_policies
 from .schemas import require_valid_ai_configuration
 
 
@@ -206,12 +206,27 @@ class ExecutionManager:
             raise ValueError("configuration is disabled")
         if request.configuration_id != configuration.id:
             raise ValueError("request/configuration mismatch")
+        configuration_payload = record_payload(configuration, record_type="AI_CONFIGURATION")
+        request_overrides = request.execution_options
+        overrides = PolicyOverrides(
+            exposure_policy_reference=request_overrides.get("exposure_policy_reference"),
+            context_overflow_policy=request_overrides.get("context_overflow_policy"),
+            workspace_context_strategy=request_overrides.get("workspace_context_strategy"),
+            explicit_exposure_override=bool(request_overrides.get("explicit_exposure_override", False)),
+        )
+        policies = resolve_policies(configuration_payload, overrides=overrides)
+        configuration_payload["resolved_policies"] = {
+            "exposure_policy_reference": policies.exposure_policy_reference,
+            "context_overflow_policy": policies.overflow_policy.value,
+            "workspace_context_strategy": policies.workspace_context_strategy,
+            "sources": policies.sources,
+        }
         execution = Execution(
             session_id=session.id,
             interaction_id=request.interaction_id,
             request_id=request.id,
             configuration_id=configuration.id,
-            configuration_snapshot=record_payload(configuration, record_type="AI_CONFIGURATION"),
+            configuration_snapshot=configuration_payload,
         )
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
         return execution
