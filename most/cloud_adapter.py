@@ -6,7 +6,8 @@ injected; this adapter never silently falls back to another access method.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from .adapters import Connectivity, Observability

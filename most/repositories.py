@@ -10,7 +10,6 @@ import yaml
 
 from .persistence import PersistenceCoordinator
 
-
 T = TypeVar("T")
 
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from secrets import token_urlsafe
 from pathlib import Path
+from secrets import token_urlsafe
 
 from cryptography.fernet import Fernet, InvalidToken
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -46,7 +45,7 @@ class CLIAdapter:
             kwargs["start_new_session"] = True
         process = subprocess.Popen([executable, *arguments], **kwargs)  # type: ignore[arg-type]
         job_handle = _create_windows_job(process) if os.name == "nt" else None
-        return CLIExecution(process, tuple([executable, *arguments]), str(working_directory), job_handle)
+        return CLIExecution(process, (executable, *arguments), str(working_directory), job_handle)
 
     def cancel(self, execution: CLIExecution, grace_seconds: float = 5.0) -> CancellationReport:
         process = execution.process

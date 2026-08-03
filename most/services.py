@@ -8,9 +8,22 @@ from pathlib import Path
 from .context import apply_overflow_policy, assemble_context, estimate_tokens
 from .execution import transition
 from .journal import JournalService
-from .models import AIConfiguration, AIRequest, AISession, ContextAssemblyRecord, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, new_id, record_payload, utc_now
+from .models import (
+    AIConfiguration,
+    AIRequest,
+    AISession,
+    ContextAssemblyRecord,
+    Execution,
+    ExecutionState,
+    Interaction,
+    IntermediateResult,
+    SessionMode,
+    new_id,
+    record_payload,
+    utc_now,
+)
 from .persistence import PersistenceCoordinator
-from .policies import evaluate_exposure, resolve_overflow_policy
+from .policies import evaluate_exposure
 
 
 class ConfigurationService:

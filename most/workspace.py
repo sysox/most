@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import socket
-import hashlib
-from dataclasses import asdict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 

@@ -24,7 +24,7 @@ class GitService:
             ["git", *arguments], cwd=self.repository, text=True,
             capture_output=True, check=False,
         )
-        result = GitResult(tuple(["git", *arguments]), completed.returncode, completed.stdout, completed.stderr)
+        result = GitResult(("git", *arguments), completed.returncode, completed.stdout, completed.stderr)
         if result.returncode:
             raise RuntimeError(f"git command failed ({result.returncode}): {result.stderr.strip()}")
         return result

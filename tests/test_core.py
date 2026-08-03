@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 
 from most.context import assemble_context, resolve_lineage
-from most.models import AIConfiguration, IntermediateResult, OverflowPolicy, record_payload
+from most.models import (
+    AIConfiguration,
+    IntermediateResult,
+    OverflowPolicy,
+    record_payload,
+)
 from most.persistence import PersistenceCoordinator
 from most.policies import evaluate_exposure, resolve_overflow_policy
 

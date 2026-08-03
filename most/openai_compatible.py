@@ -6,9 +6,10 @@ prove request construction without sending data to a provider.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlparse
-from typing import Any, Callable
 
 from .adapters import Connectivity, Observability
 
@@ -40,7 +41,7 @@ class OpenAICompatibleAdapter:
         host = parsed.hostname or ""
         if host in {"localhost", "127.0.0.1", "::1"}:
             location, network, confidence = "local", "localhost", "DECLARED"
-        elif host.startswith(("10.", "192.168.")) or host.startswith("172."):
+        elif host.startswith(("10.", "192.168.", "172.")):
             location, network, confidence = "remote-private", "local-network", "DECLARED"
         else:
             location, network, confidence = configuration.get("location", "remote-public"), configuration.get("network"), "DECLARED"

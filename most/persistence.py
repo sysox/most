@@ -6,10 +6,11 @@ import json
 import os
 import socket
 import tempfile
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 
@@ -160,4 +161,4 @@ class PersistenceCoordinator:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")

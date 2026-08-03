@@ -5,7 +5,7 @@ import pytest
 
 from most.models import AIConfiguration, ExecutionState, record_payload
 from most.persistence import PersistenceCoordinator
-from most.serialization import validate_header, versioned_payload
+from most.serialization import validate_header
 
 
 def test_nested_enum_values_are_canonical():

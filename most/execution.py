@@ -6,7 +6,6 @@ from dataclasses import replace
 
 from .models import Execution, ExecutionState, utc_now
 
-
 VALID_TRANSITIONS: dict[ExecutionState, frozenset[ExecutionState]] = {
     ExecutionState.CREATED: frozenset({ExecutionState.VALIDATING}),
     ExecutionState.VALIDATING: frozenset({ExecutionState.READY, ExecutionState.WAITING_FOR_USER, ExecutionState.FAILED, ExecutionState.CANCELLED}),
