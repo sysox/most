@@ -100,6 +100,83 @@ class ContextAssemblyRecord:
 
 
 @dataclass(slots=True)
+class Message:
+    id: str = field(default_factory=new_id)
+    role: str = "user"
+    content_parts: list[dict[str, Any]] = field(default_factory=list)
+    created_at: str = field(default_factory=utc_now)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Interaction:
+    id: str = field(default_factory=new_id)
+    session_id: str = ""
+    sequence_number: int = 0
+    configuration_id: str = ""
+    request_id: str | None = None
+    execution_id: str | None = None
+    created_at: str = field(default_factory=utc_now)
+    status: str = "created"
+
+
+@dataclass(slots=True)
+class AIResponse:
+    id: str = field(default_factory=new_id)
+    request_id: str = ""
+    configuration_id: str = ""
+    content_parts: list[dict[str, Any]] = field(default_factory=list)
+    finish_status: str | None = None
+    usage: dict[str, Any] = field(default_factory=dict)
+    cost: dict[str, Any] | None = None
+    provider_metadata: dict[str, Any] = field(default_factory=dict)
+    raw_response_reference: str | None = None
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass(slots=True)
+class ApplicationSettings:
+    application_instance_id: str = field(default_factory=new_id)
+    default_exposure_transition_policy_reference: str | None = None
+    default_context_overflow_policy: OverflowPolicy = OverflowPolicy.FAIL
+    default_workspace_context_strategy: str = "EXPLICIT_SELECTION"
+    application_data_root: str = "application-data"
+    browser_profile_root: str = "browser-profiles"
+    temporary_workspace_root: str = "temporary-workspaces"
+    artifact_root: str = "artifacts"
+    default_logging_policy: dict[str, Any] = field(default_factory=dict)
+    lease_timeout_seconds: int = 300
+    process_cancel_grace_seconds: int = 5
+    event_flush_interval_ms: int = 100
+    created_at: str = field(default_factory=utc_now)
+    updated_at: str = field(default_factory=utc_now)
+
+
+@dataclass(slots=True)
+class AIIteration:
+    id: str = field(default_factory=new_id)
+    session_id: str = ""
+    interaction_id: str = ""
+    request_id: str = ""
+    execution_id: str = ""
+    sequence_number: int = 0
+    input_result_id: str | None = None
+    intermediate_result_ids: list[str] = field(default_factory=list)
+    base_commit: str | None = None
+    resulting_commit: str | None = None
+    changed_files: list[str] = field(default_factory=list)
+    proposed_patch_reference: str | None = None
+    final_diff_reference: str | None = None
+    commands_log_reference: str | None = None
+    tests_log_reference: str | None = None
+    review_results_reference: str | None = None
+    status: str = "created"
+    created_at: str = field(default_factory=utc_now)
+    completed_at: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PersistedRecordHeader:
     schema_version: int
     record_type: str

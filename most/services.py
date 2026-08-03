@@ -8,7 +8,7 @@ from pathlib import Path
 from .context import assemble_context
 from .execution import transition
 from .journal import JournalService
-from .models import AIConfiguration, AIRequest, AISession, Execution, ExecutionState, IntermediateResult, SessionMode, record_payload
+from .models import AIConfiguration, AIRequest, AISession, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, record_payload, utc_now
 from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure, resolve_overflow_policy
 
@@ -29,21 +29,65 @@ class SessionService:
         self.store = PersistenceCoordinator(root)
         self.journal = JournalService(root)
         self.results: dict[str, IntermediateResult] = {}
+        self.sessions: dict[str, AISession] = {}
+        self.interactions: dict[str, Interaction] = {}
 
     def create(self, title: str, mode: SessionMode = SessionMode.COMMUNICATION) -> AISession:
         session = AISession(title=title, mode=mode)
+        self.sessions[session.id] = session
         self.journal.initialize(session.id, record_payload(session, record_type="AI_SESSION"))
         return session
 
     def add_result(self, result: IntermediateResult, content: str) -> IntermediateResult:
         if result.id in self.results:
             raise ValueError(f"result already exists: {result.id}")
+        session = self.sessions.get(result.session_id)
+        if session is None:
+            raise KeyError(f"unknown session {result.session_id}")
+        if result.parent_result_id:
+            parent = self.results.get(result.parent_result_id)
+            if parent is None:
+                raise KeyError(f"unknown parent result {result.parent_result_id}")
+            if parent.session_id != result.session_id:
+                raise ValueError("result parent belongs to another session")
         self.results[result.id] = result
         self.journal.record_result(result, content)
         return result
 
     def context_for(self, active_result_id: str):
         return assemble_context(active_result_id, self.results)
+
+    def append_interaction(self, session: AISession, configuration_id: str, sequence_number: int) -> Interaction:
+        interaction = Interaction(session_id=session.id, sequence_number=sequence_number, configuration_id=configuration_id)
+        self.interactions[interaction.id] = interaction
+        self.store.append_versioned_jsonl(
+            f"sessions/{session.id}/interactions.jsonl", [record_payload(interaction, record_type="INTERACTION")],
+            record_type="INTERACTION",
+        )
+        return interaction
+
+    def create_workspace_from_result(self, source: AISession, result_id: str, title: str | None = None) -> AISession:
+        result = self.results.get(result_id)
+        if result is None or result.session_id != source.id:
+            raise KeyError("result does not belong to source session")
+        workspace = self.create(title or source.title, SessionMode.WORKSPACE)
+        workspace.origin_session_id = source.id
+        workspace.origin_result_id = result_id
+        workspace.active_result_id = result_id
+        self.journal.initialize(workspace.id, record_payload(workspace, record_type="AI_SESSION"))
+        return workspace
+
+    def select_final_result(self, session: AISession, result_id: str) -> AISession:
+        result = self.results.get(result_id)
+        if result is None or result.session_id != session.id:
+            raise KeyError("result does not belong to session")
+        for candidate in self.results.values():
+            if candidate.session_id == session.id:
+                candidate.selected_as_final = candidate.id == result_id
+        session.active_result_id = result_id
+        session.updated_at = utc_now()
+        self.journal.initialize(session.id, record_payload(session, record_type="AI_SESSION"))
+        return session
 
 
 class ExecutionManager:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import socket
+import hashlib
 from dataclasses import asdict
 from dataclasses import dataclass
 from enum import Enum
@@ -39,6 +40,12 @@ class WorkspaceIsolation:
     base_commit: str
     branch: str | None
     dirty_status: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceState:
+    git_status: str
+    file_hashes: dict[str, str]
 
 
 class WorkspaceService:
@@ -98,6 +105,26 @@ class WorkspaceService:
             self.git.create_worktree(destination, branch, base)
             return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status)
         return WorkspaceIsolation("CURRENT_REPOSITORY", self.repository, base, None, status)
+
+    def capture_workspace_state(self) -> WorkspaceState:
+        if not self.git.is_repository():
+            raise ValueError("workspace must be a Git repository")
+        hashes: dict[str, str] = {}
+        data_root = self.store.root.resolve()
+        for path in self.repository.rglob("*"):
+            if not path.is_file() or ".git" in path.parts:
+                continue
+            if data_root == path.resolve() or data_root in path.resolve().parents:
+                continue
+            relative = path.relative_to(self.repository).as_posix()
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            hashes[relative] = digest
+        return WorkspaceState(self.git.status(), hashes)
+
+    def assert_workspace_unchanged(self, expected: WorkspaceState) -> None:
+        current = self.capture_workspace_state()
+        if current != expected:
+            raise RuntimeError("WORKSPACE_DIVERGED")
 
     def _read_lease(self, relative: str) -> WorkspaceLease | None:
         import yaml
