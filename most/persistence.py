@@ -54,7 +54,12 @@ class PersistenceCoordinator:
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                yaml.safe_dump(asdict(lease), handle, sort_keys=False)
+                from .serialization import versioned_payload
+                yaml.safe_dump(
+                    versioned_payload(asdict(lease), record_type="DATA_ROOT_LEASE", record_id=lease.lease_id),
+                    handle,
+                    sort_keys=False,
+                )
                 handle.flush()
                 os.fsync(handle.fileno())
         except Exception:
@@ -73,7 +78,11 @@ class PersistenceCoordinator:
         if not current or current.lease_id != lease.lease_id:
             raise RuntimeError("data-root lease ownership mismatch")
         updated = DataRootLease(lease.lease_id, lease.process_id, lease.host_identifier, lease.started_at, _now(), lease.lease_timeout_seconds)
-        self.write_yaml(".data-root.lease.yaml", asdict(updated))
+        from .serialization import versioned_payload
+        self.write_yaml(
+            ".data-root.lease.yaml",
+            versioned_payload(asdict(updated), record_type="DATA_ROOT_LEASE", record_id=updated.lease_id),
+        )
         return updated
 
     def release_data_root_lease(self, lease_id: str) -> None:
@@ -166,7 +175,8 @@ class PersistenceCoordinator:
         if not path.exists():
             return None
         values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        return DataRootLease(**values)
+        lease_fields = set(DataRootLease.__dataclass_fields__)
+        return DataRootLease(**{key: values[key] for key in lease_fields})
 
     @staticmethod
     def _existing_lease_active(values: dict[str, Any]) -> bool:

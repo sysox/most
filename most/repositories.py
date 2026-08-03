@@ -19,6 +19,9 @@ class RawYamlRepository(Generic[T]):
     directory: str
 
     def save(self, record_id: str, payload: dict[str, Any]) -> Path:
+        from .serialization import versioned_payload
+        if "schema_version" not in payload:
+            payload = versioned_payload(payload, record_type=self.directory.upper().replace("/", "_"), record_id=record_id)
         return self.store.write_yaml(f"{self.directory}/{record_id}.yaml", payload)
 
     def get(self, record_id: str) -> dict[str, Any] | None:
@@ -46,4 +49,12 @@ class IndexService:
             value = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             if isinstance(value, dict):
                 entries.append({"record_id": value.get("record_id", path.stem), "path": str(path.relative_to(self.store.root))})
-        return self.store.write_json(f"indexes/{index_name}.json", {"source": source_directory, "entries": entries})
+        from .serialization import versioned_payload
+        return self.store.write_json(
+            f"indexes/{index_name}.json",
+            versioned_payload(
+                {"source": source_directory, "entries": entries},
+                record_type="DERIVED_INDEX",
+                record_id=index_name,
+            ),
+        )

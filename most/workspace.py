@@ -63,13 +63,18 @@ class WorkspaceService:
             raise RuntimeError("workspace already has an active lease")
         now = utc_now()
         lease = WorkspaceLease(new_id(), session_id, os.getpid(), socket.gethostname(), now, now, timeout_seconds)
-        self.store.write_yaml(relative, asdict(lease))
+        from .serialization import versioned_payload
+        self.store.write_yaml(relative, versioned_payload(asdict(lease), record_type="WORKSPACE_LEASE", record_id=lease.lease_id))
         return lease
 
     def heartbeat(self, workspace_id: str, lease: WorkspaceLease) -> WorkspaceLease:
         updated = WorkspaceLease(lease.lease_id, lease.session_id, lease.process_id, lease.host_identifier,
                                  lease.started_at, utc_now(), lease.lease_timeout_seconds)
-        self.store.write_yaml(f"workspaces/{workspace_id}.lease.yaml", asdict(updated))
+        from .serialization import versioned_payload
+        self.store.write_yaml(
+            f"workspaces/{workspace_id}.lease.yaml",
+            versioned_payload(asdict(updated), record_type="WORKSPACE_LEASE", record_id=updated.lease_id),
+        )
         return updated
 
     def release_lease(self, workspace_id: str, lease_id: str) -> None:
@@ -231,7 +236,8 @@ class WorkspaceService:
         if not path.exists():
             return None
         values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        return WorkspaceLease(**values)
+        lease_fields = set(WorkspaceLease.__dataclass_fields__)
+        return WorkspaceLease(**{key: values[key] for key in lease_fields})
 
     def _lease_is_active(self, lease: WorkspaceLease) -> bool:
         if lease.host_identifier != socket.gethostname():
