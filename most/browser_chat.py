@@ -27,12 +27,18 @@ SELECTOR_PACKS = {
         "submit": "button[aria-label*='Send']",
         "output": "div[data-is-streaming='false']",
     }),
+    "cerit": SelectorPack("cerit", "2026-08", {
+        "input": "textarea[placeholder*='Message'], textarea",
+        "submit": "button[type='submit']",
+        "output": ".message-markdown, [data-message-id]",
+    }),
 }
 
 URLS = {
     "chatgpt": "https://chatgpt.com/",
     "gemini": "https://gemini.google.com/app",
     "claude": "https://claude.ai/new",
+    "cerit": "https://chat.ai.e-infra.cz/",
 }
 
 

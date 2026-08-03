@@ -2,6 +2,12 @@
 
 Python file-based safety kernel for the multi-provider AI access application.
 
+## Installation
+
+For complete Linux, Windows, and macOS setup—including provider logins,
+Ollama models, CERIT API keys, browser support, and verification—see
+[install.md](install.md).
+
 ## Development
 
 ```bash
@@ -23,6 +29,9 @@ uv run python -m most --data-root ./application-data inspect-workspace <reposito
 uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 ```
 
+See [ai-map.md](ai-map.md) for the current provider inventory, recommended
+task routing, privacy boundaries, and example commands.
+
 The `chat` command uses the local OpenAI-compatible endpoint at
 `http://127.0.0.1:11434/v1` by default, so it works with Ollama without an API
 key. Pass one prompt for a single turn or omit the prompt for an interactive
@@ -33,6 +42,22 @@ uv run python -m most --data-root ./application-data chat --model granite4.1:3b 
 uv run python -m most --data-root ./application-data chat --model ministral-3:8b
 ```
 
+CERIT-SC/e-INFRA CZ provides an OpenAI-compatible on-premise endpoint at
+`https://llm.ai.e-infra.cz/v1`. Create an API key in the CERIT Open WebUI,
+then provide it through the environment; MOST does not persist the key:
+
+```bash
+read -rsp "CERIT API key: " CERIT_API_KEY; export CERIT_API_KEY; echo
+uv run python -m most --data-root ./application-data cerit-chat \
+  --model mini "Hello from MOST"
+```
+
+Use maintained CERIT aliases such as `mini`, `coder`, `agentic`, `kimi`,
+`glm`, or `deepseek`; exact model names may change. The request and response
+are recorded in MOST's local journal. Access requires an active MetaCentrum
+or eligible Masaryk University account. See the
+[CERIT API documentation](https://docs.cerit.io/en/docs/ai-as-a-service/ai-api).
+
 Browser communication is optional and uses Firefox with an isolated profile:
 
 ```bash
@@ -40,6 +65,7 @@ uv sync --extra browser
 uv run python -m most --data-root ./application-data browser-chat gemini
 uv run python -m most --data-root ./application-data browser-chat chatgpt
 uv run python -m most --data-root ./application-data browser-chat claude
+uv run python -m most --data-root ./application-data browser-chat cerit --manual
 ```
 
 If a provider blocks WebDriver sign-in, use manual browser relay mode. MOST

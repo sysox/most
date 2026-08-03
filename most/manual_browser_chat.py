@@ -13,6 +13,7 @@ URLS = {
     "chatgpt": "https://chatgpt.com/",
     "gemini": "https://gemini.google.com/app",
     "claude": "https://claude.ai/new",
+    "cerit": "https://chat.ai.e-infra.cz/",
 }
 
 

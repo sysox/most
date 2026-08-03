@@ -25,3 +25,16 @@ def test_openai_compatible_adapter_builds_request_with_opaque_credential():
                                {"model_reference": "m", "adapter_options": {"base_url": "http://localhost/v1"}}, "opaque")
     assert response.status == 200
     assert calls[0][1]["authorization"] == "Bearer opaque"
+
+
+def test_openai_compatible_adapter_keeps_cerit_key_out_of_payload():
+    calls = []
+    def transport(url, headers, payload):
+        calls.append((url, headers, payload))
+        return HTTPResponse(200, {"choices": [{"message": {"content": "ok"}}]})
+    adapter = OpenAICompatibleAdapter(transport)
+    adapter.execute({"messages": [{"role": "user", "content": "hi"}]}, {
+        "model_reference": "mini", "adapter_options": {"base_url": "https://llm.ai.e-infra.cz/v1"}
+    }, "secret")
+    assert calls[0][0] == "https://llm.ai.e-infra.cz/v1/chat/completions"
+    assert "secret" not in repr(calls[0][2])

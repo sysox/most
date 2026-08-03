@@ -22,3 +22,8 @@ def test_browser_chat_parser_requires_supported_provider():
 def test_browser_chat_parser_supports_manual_relay():
     args = build_parser().parse_args(["browser-chat", "chatgpt", "--manual"])
     assert args.manual is True
+
+
+def test_browser_chat_supports_cerit_webui():
+    args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
+    assert args.provider == "cerit"

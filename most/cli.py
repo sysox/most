@@ -36,8 +36,14 @@ def build_parser() -> argparse.ArgumentParser:
     chat.add_argument("--model", default="granite4.1:3b")
     chat.add_argument("--base-url", default="http://127.0.0.1:11434/v1")
     chat.add_argument("--title", default="Local AI chat")
+    cerit_chat = subparsers.add_parser("cerit-chat", help="communicate with CERIT-SC through its OpenAI-compatible API")
+    cerit_chat.add_argument("prompt", nargs="?")
+    cerit_chat.add_argument("--model", default="mini", help="CERIT model name or maintained alias")
+    cerit_chat.add_argument("--base-url", default="https://llm.ai.e-infra.cz/v1")
+    cerit_chat.add_argument("--api-key-env", default="CERIT_API_KEY", help="environment variable containing the CERIT API key")
+    cerit_chat.add_argument("--title", default="CERIT AI chat")
     browser_chat = subparsers.add_parser("browser-chat", help="communicate through a logged-in browser session")
-    browser_chat.add_argument("provider", choices=("chatgpt", "gemini", "claude"))
+    browser_chat.add_argument("provider", choices=("chatgpt", "gemini", "claude", "cerit"))
     browser_chat.add_argument("prompt", nargs="?")
     browser_chat.add_argument("--title", default="Browser AI chat")
     browser_chat.add_argument("--headless", action="store_true")
@@ -79,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "chat":
         return run_chat(args)
+    if args.command == "cerit-chat":
+        return run_cerit_chat(args)
     if args.command == "browser-chat":
         if args.manual:
             from .manual_browser_chat import run_manual_browser_chat
@@ -158,6 +166,60 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
             sequence_number=len(messages),
             result_type="response",
             parent_result_id=session.active_result_id,
+        )
+        sessions.add_result(result, content)
+        session.active_result_id = result.id
+        messages.append({"role": "assistant", "content": content})
+        print(f"assistant> {content}")
+        if args.prompt is not None:
+            break
+        prompt = None
+    print(f"session: {session.id}")
+    return 0
+
+
+def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
+    """Run a journaled CERIT-SC chat using an environment-provided API key."""
+    import os
+
+    credential = os.environ.get(args.api_key_env)
+    if not credential:
+        raise SystemExit(f"missing CERIT API key; set ${args.api_key_env} without putting it in configuration files")
+    root = args.data_root
+    sessions = SessionService(root)
+    session = sessions.create(args.title)
+    configuration = AIConfiguration(
+        name=f"CERIT: {args.model}", provider_id="cerit", access_method_id="openai-compatible",
+        model_reference=args.model, location="remote-public", network="public-internet",
+        adapter_options={"base_url": args.base_url},
+    )
+    ConfigurationService(root).save(configuration)
+    manager = ExecutionManager(root)
+    adapter = (registry or create_default_registry()).get("openai-compatible")
+    messages: list[dict[str, str]] = []
+    prompt = args.prompt
+    while True:
+        if prompt is None:
+            try:
+                prompt = input("you> ")
+            except EOFError:
+                break
+        prompt = prompt.strip()
+        if not prompt:
+            prompt = None
+            continue
+        if prompt.lower() in {"/exit", "/quit"}:
+            break
+        messages.append({"role": "user", "content": prompt})
+        interaction = sessions.append_interaction(session, configuration.id, len(messages))
+        request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
+        execution = manager.prepare(request, configuration, session)
+        execution, response = manager.execute(execution, request, configuration, adapter, credential_handle=credential)
+        normalized = normalize_response(response)
+        content = "".join(str(part.get("text", "")) for part in normalized["content_parts"] if isinstance(part, dict))
+        result = IntermediateResult(
+            session_id=session.id, interaction_id=interaction.id, execution_id=execution.id,
+            sequence_number=len(messages), result_type="response", parent_result_id=session.active_result_id,
         )
         sessions.add_result(result, content)
         session.active_result_id = result.id
