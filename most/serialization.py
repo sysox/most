@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
@@ -41,3 +42,31 @@ def validate_header(payload: dict[str, Any]) -> PersistedRecordHeader:
         str(payload["record_id"]), str(payload["written_at"]),
         str(payload["writer_application_version"]),
     )
+
+
+class UnsupportedSchemaError(ValueError):
+    pass
+
+
+class SchemaRegistry:
+    """Dispatches persisted records by `(record_type, schema_version)`."""
+
+    def __init__(self):
+        self._readers: dict[tuple[str, int], Callable[[dict[str, Any]], dict[str, Any]]] = {}
+
+    def register(self, record_type: str, schema_version: int,
+                 reader: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
+        key = (record_type, schema_version)
+        if key in self._readers:
+            raise ValueError(f"schema reader already registered: {key}")
+        self._readers[key] = reader
+
+    def read(self, payload: dict[str, Any]) -> dict[str, Any]:
+        header = validate_header(payload)
+        reader = self._readers.get((header.record_type, header.schema_version))
+        if reader is None:
+            raise UnsupportedSchemaError(f"unsupported schema: {header.record_type} v{header.schema_version}")
+        return reader(dict(payload))
+
+    def supported(self) -> tuple[tuple[str, int], ...]:
+        return tuple(sorted(self._readers))
