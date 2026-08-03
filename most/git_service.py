@@ -26,7 +26,7 @@ class GitService:
     def run(self, *arguments: str) -> GitResult:
         completed = subprocess.run(
             ["git", *arguments], cwd=self.repository, text=True,
-            capture_output=True, check=False,
+            capture_output=True, check=False, stdin=subprocess.DEVNULL,
         )
         result = GitResult(("git", *arguments), completed.returncode, completed.stdout, completed.stderr)
         if result.returncode:
@@ -34,7 +34,10 @@ class GitService:
         return result
 
     def is_repository(self) -> bool:
-        result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=self.repository, text=True, capture_output=True, check=False)
+        result = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"], cwd=self.repository,
+            text=True, capture_output=True, check=False, stdin=subprocess.DEVNULL,
+        )
         return result.returncode == 0 and result.stdout.strip() == "true"
 
     def initialize_repository(self) -> GitResult:
@@ -68,7 +71,7 @@ class GitService:
         destination.parent.mkdir(parents=True, exist_ok=True)
         completed = subprocess.run(
             ["git", "clone", "--no-hardlinks", str(self.repository), str(destination)],
-            text=True, capture_output=True, check=False,
+            text=True, capture_output=True, check=False, stdin=subprocess.DEVNULL,
         )
         if completed.returncode:
             raise RuntimeError(f"git clone failed ({completed.returncode}): {completed.stderr.strip()}")
@@ -80,7 +83,8 @@ class GitService:
         try:
             result = subprocess.run(
                 ["git", "submodule", "status", "--recursive"], cwd=self.repository,
-                text=True, capture_output=True, check=False, timeout=INSPECTION_TIMEOUT_SECONDS,
+                text=True, capture_output=True, check=False, stdin=subprocess.DEVNULL,
+                timeout=INSPECTION_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired:
             return {"available": False, "status": "", "error": "git submodule inspection timed out"}
@@ -92,7 +96,8 @@ class GitService:
         try:
             result = subprocess.run(
                 ["git", "lfs", "ls-files"], cwd=self.repository,
-                text=True, capture_output=True, check=False, timeout=INSPECTION_TIMEOUT_SECONDS,
+                text=True, capture_output=True, check=False, stdin=subprocess.DEVNULL,
+                timeout=INSPECTION_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired:
             return {"available": False, "required": False, "files": [], "reason": "git-lfs inspection timed out"}
