@@ -10,6 +10,7 @@ build/
 .coverage
 coverage.xml
 .ai-journal/
+browser-profiles/
 application-data/
 artifacts/
 *.secret

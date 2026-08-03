@@ -38,7 +38,7 @@ class BrowserDriver(Protocol):
 
 class IsolatedBrowserProfileService:
     def __init__(self, managed_root: Path):
-        self.managed_root = managed_root.resolve()
+        self.managed_root = Path(managed_root).resolve()
         self.managed_root.mkdir(parents=True, exist_ok=True)
 
     def validate_isolated_profile_path(self, profile: Path, forbidden_roots: list[Path]) -> Path:

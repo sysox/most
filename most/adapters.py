@@ -89,3 +89,16 @@ class AdapterRegistry:
 
     def get_observability_profile(self, adapter_type: str, configuration: dict[str, Any]) -> Observability:
         return self.get(adapter_type).get_observability_profile(configuration)
+
+
+def create_default_registry() -> AdapterRegistry:
+    from .browser import BrowserAdapter, IsolatedBrowserProfileService
+    from .cloud_adapter import CloudAPIAdapter
+    from .openai_compatible import OpenAICompatibleAdapter
+
+    registry = AdapterRegistry()
+    registry.register("openai-compatible", OpenAICompatibleAdapter())
+    registry.register("official-cloud-api", CloudAPIAdapter())
+    # Browser execution remains conservative until a selector pack and driver are supplied.
+    registry.register("browser", BrowserAdapter(IsolatedBrowserProfileService("browser-profiles")))
+    return registry

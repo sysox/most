@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from .adapters import AdapterRegistry, Connectivity
 from .context import apply_overflow_policy, assemble_context, estimate_tokens
 from .execution import transition
 from .journal import JournalService
@@ -35,6 +36,30 @@ class ConfigurationService:
             f"ai-configurations/{configuration.id}.yaml",
             record_payload(configuration, record_type="AI_CONFIGURATION"),
         )
+
+    def get(self, configuration_id: str) -> dict[str, object] | None:
+        import yaml
+        path = self.store.root / "ai-configurations" / f"{configuration_id}.yaml"
+        if not path.exists():
+            return None
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+
+    def list(self) -> list[dict[str, object]]:
+        return [value for value in (self.get(path.stem) for path in (self.store.root / "ai-configurations").glob("*.yaml")) if value]
+
+
+class ConnectivityService:
+    def __init__(self, registry: AdapterRegistry, network_inspector):
+        self.registry = registry
+        self.network_inspector = network_inspector
+
+    def resolve(self, adapter_type: str, configuration: dict[str, object]) -> Connectivity:
+        adapter_resolution = self.registry.get(adapter_type).resolve_connectivity(configuration)
+        endpoint = adapter_resolution.endpoint
+        if not endpoint:
+            return adapter_resolution
+        return self.network_inspector.inspect(endpoint, adapter_resolution.location, adapter_resolution.network)
 
 
 class SessionService:
