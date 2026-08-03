@@ -6,6 +6,9 @@ from most.services import ExecutionManager
 
 
 class StreamingAdapter:
+    def validate_configuration(self, configuration):
+        return []
+
     def resolve_connectivity(self, configuration):
         return Connectivity("http://localhost", "local", "localhost", "DECLARED")
 

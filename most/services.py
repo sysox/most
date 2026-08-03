@@ -265,6 +265,7 @@ class ExecutionManager:
     def execute(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
                 credential_handle: str | None = None, confirmation: bool = False):
         """Run one adapter invocation only after connectivity/exposure validation."""
+        self._validate_adapter_configuration(adapter, configuration)
         declared_connectivity = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
         connectivity = declared_connectivity
         if declared_connectivity.endpoint:
@@ -304,6 +305,7 @@ class ExecutionManager:
     def stream(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
                credential_handle: str | None = None, confirmation: bool = False) -> tuple[Execution, list[StreamEvent]]:
         """Run a structured adapter stream and persist every observed event."""
+        self._validate_adapter_configuration(adapter, configuration)
         declared = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
         connectivity = declared
         if declared.endpoint:
@@ -382,3 +384,12 @@ class ExecutionManager:
                     record_type="EXECUTION_COMPLETION", record_id=execution.id,
                 ),
             )
+
+    @staticmethod
+    def _validate_adapter_configuration(adapter, configuration: AIConfiguration) -> None:
+        validate = getattr(adapter, "validate_configuration", None)
+        if validate is None:
+            raise TypeError("adapter must implement validate_configuration")
+        errors = validate(record_payload(configuration, record_type="AI_CONFIGURATION"))
+        if errors:
+            raise ValueError("invalid adapter configuration: " + "; ".join(str(error) for error in errors))

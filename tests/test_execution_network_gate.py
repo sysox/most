@@ -8,6 +8,9 @@ from most.services import ExecutionManager
 
 
 class UnknownAdapter:
+    def validate_configuration(self, configuration):
+        return []
+
     def resolve_connectivity(self, configuration):
         return Connectivity("https://unresolvable.invalid", "local", "localhost", "DECLARED")
 

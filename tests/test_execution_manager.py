@@ -6,6 +6,9 @@ from most.services import ExecutionManager
 
 
 class FakeAdapter:
+    def validate_configuration(self, configuration):
+        return []
+
     def resolve_connectivity(self, configuration):
         return Connectivity(configuration["adapter_options"]["base_url"], "local", "localhost", "DECLARED")
 
