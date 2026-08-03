@@ -1,0 +1,66 @@
+"""Optional Firefox WebDriver implementation for user-directed browser sessions."""
+
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+
+class SeleniumFirefoxDriver:
+    def __init__(self, profile: Path, *, headless: bool = False):
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.firefox.options import Options
+            from selenium.webdriver.firefox.service import Service
+        except ImportError as exc:
+            raise RuntimeError("browser support requires: uv sync --extra browser") from exc
+        options = Options()
+        options.add_argument("-profile")
+        options.add_argument(str(profile.resolve()))
+        if headless:
+            options.add_argument("-headless")
+        executable = shutil.which("geckodriver")
+        service = Service(executable_path=executable) if executable else Service()
+        self.driver = webdriver.Firefox(service=service, options=options)
+
+    def open(self, url: str) -> None:
+        self.driver.get(url)
+
+    def click(self, selector: str) -> None:
+        self._element(selector).click()
+
+    def type_text(self, selector: str, value: str) -> None:
+        element = self._element(selector)
+        element.clear()
+        element.send_keys(value)
+
+    def read_text(self, selector: str) -> str:
+        elements = self._elements(selector)
+        if not elements:
+            raise RuntimeError(f"browser output selector returned no elements: {selector}")
+        return elements[-1].text
+
+    def wait_for_output(self, selector: str) -> None:
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        WebDriverWait(self.driver, 60).until(lambda _: any(element.text.strip() for element in self._elements(selector)))
+
+    def screenshot(self) -> str | None:
+        return None
+
+    def sanitized_dom(self) -> str | None:
+        return None
+
+    def close(self) -> None:
+        self.driver.quit()
+
+    def _elements(self, selector: str):
+        from selenium.webdriver.common.by import By
+
+        return self.driver.find_elements(By.CSS_SELECTOR, selector)
+
+    def _element(self, selector: str):
+        elements = self._elements(selector)
+        if not elements:
+            raise RuntimeError(f"browser selector returned no elements: {selector}")
+        return elements[-1]

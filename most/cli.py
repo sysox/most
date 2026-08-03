@@ -36,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
     chat.add_argument("--model", default="granite4.1:3b")
     chat.add_argument("--base-url", default="http://127.0.0.1:11434/v1")
     chat.add_argument("--title", default="Local AI chat")
+    browser_chat = subparsers.add_parser("browser-chat", help="communicate through a logged-in browser session")
+    browser_chat.add_argument("provider", choices=("chatgpt", "gemini", "claude"))
+    browser_chat.add_argument("prompt", nargs="?")
+    browser_chat.add_argument("--title", default="Browser AI chat")
+    browser_chat.add_argument("--headless", action="store_true")
     return parser
 
 
@@ -68,6 +73,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "chat":
         return run_chat(args)
+    if args.command == "browser-chat":
+        from .browser_chat import run_browser_chat
+        return run_browser_chat(args)
     if args.command == "inspect-execution":
         execution_root = args.data_root / "executions"
         direct_metadata = execution_root / args.execution_id / "metadata.yaml"

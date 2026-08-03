@@ -12,6 +12,7 @@ dependencies = ["PyYAML>=6.0", "cryptography>=42.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.8"]
+browser = ["selenium>=4.25"]
 
 [tool.setuptools.packages.find]
 include = ["most*"]

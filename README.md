@@ -33,6 +33,19 @@ python -m most --data-root ./application-data chat --model granite4.1:3b "Hello"
 python -m most --data-root ./application-data chat --model ministral-3:8b
 ```
 
+Browser communication is optional and uses Firefox with an isolated profile:
+
+```bash
+uv sync --extra browser
+python -m most --data-root ./application-data browser-chat gemini
+python -m most --data-root ./application-data browser-chat chatgpt
+python -m most --data-root ./application-data browser-chat claude
+```
+
+The command opens the provider site, pauses for manual login, and then records
+the conversation and execution in the same file-backed journal. It does not
+bypass login, CAPTCHA, consent, rate limits, or other site controls.
+
 The current implementation starts with portable domain records, deterministic
 result lineage, atomic YAML/JSON persistence, crash-tolerant JSONL recovery,
 exposure-policy evaluation, and adapter boundaries. Workspace orchestration and

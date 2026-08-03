@@ -35,6 +35,8 @@ class BrowserDriver(Protocol):
     def screenshot(self) -> str | None: ...
     def sanitized_dom(self) -> str | None: ...
 
+    def wait_for_output(self, selector: str) -> None: ...
+
 
 class IsolatedBrowserProfileService:
     def __init__(self, managed_root: Path):
@@ -91,6 +93,9 @@ class BrowserAdapter:
             driver.click(input_selector)
             driver.type_text(input_selector, prompt)
             driver.click(submit_selector)
+            wait_for_output = getattr(driver, "wait_for_output", None)
+            if wait_for_output is not None:
+                wait_for_output(output_selector)
             return {"text": driver.read_text(output_selector), "selector_pack_version": pack.version}
         except Exception as exc:
             diagnostic = BrowserFailureDiagnostic(pack.version, str(exc), driver.screenshot(), driver.sanitized_dom())
