@@ -28,6 +28,25 @@ from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure
 
 
+class SettingsService:
+    def __init__(self, root: Path):
+        self.store = PersistenceCoordinator(root)
+
+    def initialize(self, settings=None):
+        from .models import ApplicationSettings
+        settings = settings or ApplicationSettings(application_data_root=str(self.store.root))
+        self.store.write_yaml("app-config.yaml", record_payload(settings, record_type="APPLICATION_SETTINGS"))
+        return settings
+
+    def load(self) -> dict[str, object] | None:
+        import yaml
+        path = self.store.root / "app-config.yaml"
+        if not path.exists():
+            return None
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+
+
 class ConfigurationService:
     def __init__(self, root: Path):
         self.store = PersistenceCoordinator(root)
