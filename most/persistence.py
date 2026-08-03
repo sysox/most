@@ -86,6 +86,15 @@ class PersistenceCoordinator:
             os.fsync(handle.fileno())
         return target
 
+    def append_versioned_jsonl(self, relative: str, records: Iterable[dict[str, Any]], *, record_type: str,
+                               application_version: str = "0.1.0") -> Path:
+        from .serialization import versioned_payload
+        versioned = []
+        for record in records:
+            record_id = str(record.get("record_id") or record.get("event_id") or record.get("id") or os.urandom(16).hex())
+            versioned.append(versioned_payload(record, record_type=record_type, record_id=record_id, application_version=application_version))
+        return self.append_jsonl(relative, versioned)
+
     def read_jsonl(self, relative: str) -> list[dict[str, Any]]:
         target = self._target(relative)
         if not target.exists():

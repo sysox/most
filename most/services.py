@@ -112,5 +112,8 @@ class ExecutionManager:
             raise
 
     def _event(self, execution: Execution, event: dict[str, object]) -> None:
-        self.store.append_jsonl(f"executions/{execution.id}/events.jsonl", [event])
+        self.store.append_versioned_jsonl(
+            f"executions/{execution.id}/events.jsonl", [event],
+            record_type="STATUS_EVENT",
+        )
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))

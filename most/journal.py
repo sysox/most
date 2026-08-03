@@ -32,4 +32,7 @@ class JournalService:
         return path
 
     def record_event(self, session_id: str, event: dict[str, object]) -> None:
-        self.store.append_jsonl(f"sessions/{session_id}/events.jsonl", [event])
+        self.store.append_versioned_jsonl(
+            f"sessions/{session_id}/events.jsonl", [event],
+            record_type="SESSION_EVENT",
+        )

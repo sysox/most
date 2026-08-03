@@ -197,9 +197,15 @@ class Execution:
 
 def record_payload(record: Any, *, record_type: str, application_version: str = "0.1.0") -> dict[str, Any]:
     data = asdict(record)
-    for key, value in list(data.items()):
+    def normalize(value: Any) -> Any:
         if isinstance(value, Enum):
-            data[key] = value.value
+            return value.value
+        if isinstance(value, dict):
+            return {key: normalize(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalize(item) for item in value]
+        return value
+    data = normalize(data)
     record_id = getattr(record, "id", None) or getattr(record, "application_instance_id", None)
     if not record_id:
         raise ValueError("record must expose id or application_instance_id")
