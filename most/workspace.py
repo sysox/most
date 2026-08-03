@@ -88,6 +88,25 @@ class WorkspaceService:
             "current_commit": self.git.current_commit() if self.git.is_repository() else None,
         }
 
+    def compatibility_report(self, destination: Path | None = None) -> dict[str, object]:
+        if not self.git.is_repository():
+            return {"is_repository": False, "safe_isolation": False, "reason": "not a Git repository"}
+        destination = destination or (self.store.root / "temporary-workspaces")
+        path_support = self.git.check_path_length_support(destination)
+        submodules = self.git.inspect_submodules()
+        lfs = self.git.inspect_lfs()
+        safe = bool(path_support["supported"] and (not lfs.get("required") or lfs.get("available")))
+        return {
+            "is_repository": True,
+            "safe_isolation": safe,
+            "current_commit": self.git.current_commit(),
+            "dirty_status": self.git.status(),
+            "submodules": submodules,
+            "lfs": lfs,
+            "path_support": path_support,
+            "selected_fallback": "DEDICATED_WORKTREE" if safe else "REQUIRE_CLEAN_WORKING_TREE",
+        }
+
     def prepare_ai_workspace(self, session_id: str, destination: Path | None = None,
                              policy: DirtyTreePolicy = DirtyTreePolicy.ISOLATE_FROM_HEAD,
                              *, confirmation: bool = False, snapshot_patch: Path | None = None) -> WorkspaceIsolation:

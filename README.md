@@ -19,6 +19,7 @@ python -m most --data-root ./application-data list-sessions
 python -m most --data-root ./application-data list-configurations
 python -m most --data-root ./application-data inspect-execution <execution-id>
 python -m most --data-root ./application-data inspect-workspace <repository> --diff
+python -m most --data-root ./application-data inspect-workspace <repository> --compatibility
 ```
 
 The current implementation starts with portable domain records, deterministic
