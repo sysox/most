@@ -257,6 +257,13 @@ class ExecutionManager:
             self.store.write_yaml(f"executions/{failed.id}/metadata.yaml", record_payload(failed, record_type="EXECUTION"))
             raise
 
+    def cancel(self, execution: Execution, reason: str = "user_requested") -> Execution:
+        if execution.state in {ExecutionState.COMPLETED, ExecutionState.FAILED, ExecutionState.CANCELLED}:
+            return execution
+        execution, event = transition(execution, ExecutionState.CANCELLED, reason=reason)
+        self._event(execution, event)
+        return execution
+
     def _event(self, execution: Execution, event: dict[str, object]) -> None:
         existing = self.store.read_jsonl(f"executions/{execution.id}/events.jsonl")
         event = {
@@ -272,3 +279,12 @@ class ExecutionManager:
             record_type="STATUS_EVENT",
         )
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
+        if execution.state in {ExecutionState.COMPLETED, ExecutionState.FAILED, ExecutionState.CANCELLED}:
+            from .serialization import versioned_payload
+            self.store.write_json(
+                f"executions/{execution.id}/completion.json",
+                versioned_payload(
+                    {"execution_id": execution.id, "state": execution.state.value, "completed_at": execution.updated_at},
+                    record_type="EXECUTION_COMPLETION", record_id=execution.id,
+                ),
+            )
