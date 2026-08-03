@@ -23,6 +23,7 @@ from .models import (
     record_payload,
     utc_now,
 )
+from .network import NetworkInspector
 from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure
 
@@ -156,8 +157,9 @@ class SessionService:
 
 
 class ExecutionManager:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, network_inspector: NetworkInspector | None = None):
         self.store = PersistenceCoordinator(root)
+        self.network_inspector = network_inspector or NetworkInspector()
 
     def prepare(self, request: AIRequest, configuration: AIConfiguration, session: AISession) -> Execution:
         if not configuration.enabled:
@@ -200,7 +202,14 @@ class ExecutionManager:
     def execute(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
                 credential_handle: str | None = None, confirmation: bool = False):
         """Run one adapter invocation only after connectivity/exposure validation."""
-        connectivity = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
+        declared_connectivity = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
+        connectivity = declared_connectivity
+        if declared_connectivity.endpoint:
+            connectivity = self.network_inspector.inspect(
+                declared_connectivity.endpoint,
+                declared_connectivity.location,
+                declared_connectivity.network,
+            )
         execution = self.validate_connectivity(
             execution,
             resolved_location=connectivity.location,
