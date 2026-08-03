@@ -20,6 +20,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra dev
       - name: Run tests
-        run: uv run pytest -vv
+        run: uv run pytest -vv --full-trace
       - name: Run lint
         run: uv run ruff check most tests
