@@ -1,0 +1,43 @@
+"""Safe Git command boundary using argument arrays."""
+
+from __future__ import annotations
+
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class GitResult:
+    command: tuple[str, ...]
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+class GitService:
+    def __init__(self, repository: Path):
+        self.repository = Path(repository)
+
+    def run(self, *arguments: str) -> GitResult:
+        completed = subprocess.run(
+            ["git", *arguments], cwd=self.repository, text=True,
+            capture_output=True, check=False,
+        )
+        result = GitResult(tuple(["git", *arguments]), completed.returncode, completed.stdout, completed.stderr)
+        if result.returncode:
+            raise RuntimeError(f"git command failed ({result.returncode}): {result.stderr.strip()}")
+        return result
+
+    def is_repository(self) -> bool:
+        result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=self.repository, text=True, capture_output=True, check=False)
+        return result.returncode == 0 and result.stdout.strip() == "true"
+
+    def status(self) -> str:
+        return self.run("status", "--porcelain=v1").stdout
+
+    def diff(self) -> str:
+        return self.run("diff", "--no-ext-diff", "--binary").stdout
+
+    def current_commit(self) -> str:
+        return self.run("rev-parse", "HEAD").stdout.strip()
