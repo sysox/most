@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     browser_chat.add_argument("--title", default="Browser AI chat")
     browser_chat.add_argument("--headless", action="store_true")
     browser_chat.add_argument("--manual", action="store_true", help="use a normal browser with manual copy/paste")
+    cli_chat = subparsers.add_parser("cli-chat", help="communicate through an installed provider CLI")
+    cli_chat.add_argument("provider", choices=("codex", "claude", "gemini"))
+    cli_chat.add_argument("prompt", nargs="?")
+    cli_chat.add_argument("--title", default="Provider CLI chat")
+    cli_chat.add_argument("--allow-unknown-connectivity", action="store_true", help="approve opaque provider CLI network routing")
     return parser
 
 
@@ -80,6 +85,9 @@ def main(argv: list[str] | None = None) -> int:
             return run_manual_browser_chat(args)
         from .browser_chat import run_browser_chat
         return run_browser_chat(args)
+    if args.command == "cli-chat":
+        from .cli_chat import run_cli_chat
+        return run_cli_chat(args)
     if args.command == "inspect-execution":
         execution_root = args.data_root / "executions"
         direct_metadata = execution_root / args.execution_id / "metadata.yaml"

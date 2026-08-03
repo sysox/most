@@ -53,6 +53,20 @@ This mode does not inspect cookies, automate login, bypass CAPTCHA, or evade
 provider security controls. It records the manually mediated exchange in the
 MOST journal.
 
+Installed subscription-backed CLI clients can be used directly from the
+terminal. MOST runs them in an application-managed sandbox and records their
+observable command/output history:
+
+```bash
+python -m most --data-root ./application-data cli-chat codex --allow-unknown-connectivity
+python -m most --data-root ./application-data cli-chat claude --allow-unknown-connectivity
+python -m most --data-root ./application-data cli-chat gemini --allow-unknown-connectivity
+```
+
+Codex runs with an ephemeral, read-only, non-repository execution. The
+provider CLI itself handles subscription authentication; MOST never receives
+or stores the provider login token.
+
 For Snap-packaged Firefox on Linux, use a visible profile root if Firefox
 cannot access the default hidden application-data path:
 

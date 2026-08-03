@@ -50,3 +50,11 @@ def test_cli_chat_persists_local_session_and_result(tmp_path: Path, capsys):
     assert "local reply" in output
     assert list((tmp_path / "sessions").glob("*/results/*.md"))
     assert list((tmp_path / "executions").glob("*/metadata.yaml"))
+
+
+def test_provider_cli_command_mapping():
+    from most.cli_chat import command_for
+
+    assert command_for("codex", "hello")[:5] == ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check")
+    assert command_for("claude", "hello") == ("-p", "hello")
+    assert command_for("gemini", "hello") == ("-p", "hello")
