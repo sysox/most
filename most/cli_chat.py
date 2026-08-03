@@ -14,6 +14,7 @@ CLI_EXECUTABLES = {
     "codex": "codex",
     "claude": "claude",
     "gemini": "gemini",
+    "agy": "agy",
 }
 
 
@@ -24,6 +25,8 @@ def command_for(provider: str, prompt: str) -> tuple[str, ...]:
         return ("-p", prompt)
     if provider == "gemini":
         return ("-p", prompt)
+    if provider == "agy":
+        return ("--print", "--output-format", "text", "--sandbox", prompt)
     raise ValueError(f"unsupported CLI provider: {provider}")
 
 

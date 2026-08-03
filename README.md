@@ -61,11 +61,16 @@ observable command/output history:
 python -m most --data-root ./application-data cli-chat codex --allow-unknown-connectivity
 python -m most --data-root ./application-data cli-chat claude --allow-unknown-connectivity
 python -m most --data-root ./application-data cli-chat gemini --allow-unknown-connectivity
+python -m most --data-root ./application-data cli-chat agy --allow-unknown-connectivity
 ```
 
 Codex runs with an ephemeral, read-only, non-repository execution. The
 provider CLI itself handles subscription authentication; MOST never receives
 or stores the provider login token.
+
+`agy` is the Antigravity CLI replacement for the retired Gemini individual
+sign-in flow. It runs with its own sandbox flag and uses the Google account
+authentication established by Antigravity.
 
 For Snap-packaged Firefox on Linux, use a visible profile root if Firefox
 cannot access the default hidden application-data path:
