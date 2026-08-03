@@ -14,9 +14,11 @@ class SeleniumFirefoxDriver:
             from selenium.webdriver.firefox.service import Service
         except ImportError as exc:
             raise RuntimeError("browser support requires: uv sync --extra browser") from exc
+        profile = profile.resolve()
+        profile.mkdir(parents=True, exist_ok=True)
         options = Options()
         options.add_argument("-profile")
-        options.add_argument(str(profile.resolve()))
+        options.add_argument(str(profile))
         if headless:
             options.add_argument("-headless")
         executable = shutil.which("geckodriver")
