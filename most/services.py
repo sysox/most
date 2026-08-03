@@ -8,7 +8,7 @@ from pathlib import Path
 from .context import assemble_context
 from .execution import transition
 from .journal import JournalService
-from .models import AIConfiguration, AIRequest, AISession, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, record_payload, utc_now
+from .models import AIConfiguration, AIRequest, AISession, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, new_id, record_payload, utc_now
 from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure, resolve_overflow_policy
 
@@ -156,6 +156,15 @@ class ExecutionManager:
             raise
 
     def _event(self, execution: Execution, event: dict[str, object]) -> None:
+        existing = self.store.read_jsonl(f"executions/{execution.id}/events.jsonl")
+        event = {
+            "event_id": new_id(),
+            "execution_id": execution.id,
+            "sequence_number": len(existing) + 1,
+            "event_type": "StatusEvent",
+            "observation_source": "PROCESS_METADATA",
+            **event,
+        }
         self.store.append_versioned_jsonl(
             f"executions/{execution.id}/events.jsonl", [event],
             record_type="STATUS_EVENT",
