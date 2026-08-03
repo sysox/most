@@ -34,6 +34,7 @@ from .models import (
 from .network import NetworkInspector
 from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure
+from .schemas import require_valid_ai_configuration
 
 
 class SettingsService:
@@ -60,9 +61,11 @@ class ConfigurationService:
         self.store = PersistenceCoordinator(root)
 
     def save(self, configuration: AIConfiguration) -> Path:
+        payload = record_payload(configuration, record_type="AI_CONFIGURATION")
+        require_valid_ai_configuration(payload)
         return self.store.write_yaml(
             f"ai-configurations/{configuration.id}.yaml",
-            record_payload(configuration, record_type="AI_CONFIGURATION"),
+            payload,
         )
 
     def get(self, configuration_id: str) -> dict[str, object] | None:

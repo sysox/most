@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     session.add_argument("--workspace", action="store_true")
     configuration = subparsers.add_parser("create-configuration")
     configuration.add_argument("name")
-    configuration.add_argument("--provider", default="")
+    configuration.add_argument("--provider", default="custom")
     configuration.add_argument("--access-method", default="openai-compatible")
     subparsers.add_parser("list-sessions")
     subparsers.add_parser("list-configurations")

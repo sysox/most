@@ -8,7 +8,7 @@ from most.services import ConfigurationService, ConnectivityService
 
 def test_configuration_service_round_trip(tmp_path: Path):
     service = ConfigurationService(tmp_path)
-    configuration = AIConfiguration(name="local")
+    configuration = AIConfiguration(name="local", provider_id="local", access_method_id="openai-compatible")
     service.save(configuration)
     assert service.get(configuration.id)["name"] == "local"
 
