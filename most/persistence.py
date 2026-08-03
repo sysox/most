@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import tempfile
+import time
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -32,8 +33,10 @@ class DataRootLease:
 class PersistenceCoordinator:
     """Single-writer coordinator for one application-data root."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, replace_retries: int = 4, retry_delay_seconds: float = 0.02):
         self.root = Path(root)
+        self.replace_retries = replace_retries
+        self.retry_delay_seconds = retry_delay_seconds
         self.root.mkdir(parents=True, exist_ok=True)
 
     def acquire_data_root_lease(self, timeout_seconds: int = 300) -> DataRootLease:
@@ -124,7 +127,7 @@ class PersistenceCoordinator:
                 handle.write(content)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, target)
+            self._replace_with_retry(Path(temporary), target)
         except Exception:
             try:
                 os.unlink(temporary)
@@ -132,6 +135,16 @@ class PersistenceCoordinator:
                 pass
             raise
         return target
+
+    def _replace_with_retry(self, temporary: Path, target: Path) -> None:
+        for attempt in range(self.replace_retries + 1):
+            try:
+                os.replace(temporary, target)
+                return
+            except OSError:
+                if attempt >= self.replace_retries:
+                    raise
+                time.sleep(self.retry_delay_seconds * (2 ** attempt))
 
     def _target(self, relative: str) -> Path:
         target = (self.root / relative).resolve()
