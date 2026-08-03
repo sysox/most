@@ -23,6 +23,7 @@ from .models import (
     ContextAssemblyRecord,
     Execution,
     ExecutionState,
+    ExecutionStep,
     Interaction,
     IntermediateResult,
     SessionMode,
@@ -211,6 +212,18 @@ class ExecutionManager:
         )
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
         return execution
+
+    def record_step(self, execution: Execution, step: ExecutionStep) -> ExecutionStep:
+        if step.execution_id != execution.id:
+            raise ValueError("execution step belongs to another execution")
+        existing = self.store.read_jsonl(f"executions/{execution.id}/steps.jsonl")
+        step.sequence_number = len(existing) + 1
+        self.store.append_versioned_jsonl(
+            f"executions/{execution.id}/steps.jsonl",
+            [record_payload(step, record_type="EXECUTION_STEP")],
+            record_type="EXECUTION_STEP",
+        )
+        return step
 
     def build_adapter_context(self, execution: Execution, request: AIRequest, configuration: AIConfiguration,
                               connectivity: Connectivity, capabilities: EffectiveCapabilities,

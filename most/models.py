@@ -279,6 +279,23 @@ class Execution:
     error: dict[str, Any] | None = None
 
 
+@dataclass(slots=True)
+class ExecutionStep:
+    id: str = field(default_factory=new_id)
+    execution_id: str = ""
+    sequence_number: int = 0
+    step_type: str = "external_agent_run"
+    status: str = "started"
+    started_at: str = field(default_factory=utc_now)
+    finished_at: str | None = None
+    input_reference: str | None = None
+    output_reference: str | None = None
+    intermediate_result_id: str | None = None
+    observation_source: str = "PROCESS_METADATA"
+    observation_confidence: str = "observed"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 def record_payload(record: Any, *, record_type: str, application_version: str = "0.1.0") -> dict[str, Any]:
     data = asdict(record)
     def normalize(value: Any) -> Any:
