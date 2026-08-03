@@ -60,7 +60,11 @@ class ProviderCLIAdapter:
         stdout, stderr, returncode = self.cli.collect(execution)
         if returncode != 0:
             raise RuntimeError(f"{self.provider} CLI exited with status {returncode}: {stderr or stdout}")
-        return {"content": stdout.strip(), "stderr": stderr, "returncode": returncode}
+        content = stdout.strip()
+        if not content:
+            detail = stderr.strip() or "no output"
+            raise RuntimeError(f"{self.provider} CLI returned no assistant output: {detail}")
+        return {"content": content, "stderr": stderr, "returncode": returncode}
 
 
 def run_cli_chat(args: Namespace) -> int:
