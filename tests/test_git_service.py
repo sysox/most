@@ -23,12 +23,12 @@ def test_git_service_can_initialize_selected_directory(tmp_path: Path):
 def test_git_checkpoint_and_isolated_worktree(tmp_path: Path):
     repository = tmp_path / "repo"
     repository.mkdir()
-    subprocess.run(["git", "init", "-q", str(repository)], check=True)
-    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True)
-    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "init", "-q", str(repository)], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True, stdin=subprocess.DEVNULL)
     (repository / "README.md").write_text("base\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(repository), "add", "README.md"], check=True)
-    subprocess.run(["git", "-C", str(repository), "commit", "-qm", "initial"], check=True)
+    subprocess.run(["git", "-C", str(repository), "add", "README.md"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "-c", "commit.gpgSign=false", "commit", "-qm", "initial"], check=True, stdin=subprocess.DEVNULL)
     service = GitService(repository)
     worktree = tmp_path / "worktree"
     service.create_worktree(worktree, "ai/test", service.current_commit())

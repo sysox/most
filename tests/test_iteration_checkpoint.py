@@ -8,12 +8,12 @@ from most.workspace import WorkspaceService
 def test_iteration_checkpoint_links_commit_after_creation(tmp_path: Path):
     repository = tmp_path / "repo"
     repository.mkdir()
-    subprocess.run(["git", "init", "-q", str(repository)], check=True)
-    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True)
-    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "init", "-q", str(repository)], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True, stdin=subprocess.DEVNULL)
     (repository / "file.txt").write_text("base\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(repository), "add", "file.txt"], check=True)
-    subprocess.run(["git", "-C", str(repository), "commit", "-qm", "initial"], check=True)
+    subprocess.run(["git", "-C", str(repository), "add", "file.txt"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "-c", "commit.gpgSign=false", "commit", "-qm", "initial"], check=True, stdin=subprocess.DEVNULL)
     (repository / "file.txt").write_text("changed\n", encoding="utf-8")
     service = WorkspaceService(tmp_path / "data", repository)
     iteration = service.create_iteration_checkpoint(

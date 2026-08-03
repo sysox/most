@@ -7,12 +7,12 @@ from most.workspace import DirtyTreePolicy, WorkspaceService
 
 
 def _repo(path: Path) -> None:
-    subprocess.run(["git", "init", "-q", str(path)], check=True)
-    subprocess.run(["git", "-C", str(path), "config", "user.name", "test"], check=True)
-    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "init", "-q", str(path)], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(path), "config", "user.name", "test"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.invalid"], check=True, stdin=subprocess.DEVNULL)
     (path / "file.txt").write_text("base\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(path), "add", "file.txt"], check=True)
-    subprocess.run(["git", "-C", str(path), "commit", "-qm", "initial"], check=True)
+    subprocess.run(["git", "-C", str(path), "add", "file.txt"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(path), "-c", "commit.gpgSign=false", "commit", "-qm", "initial"], check=True, stdin=subprocess.DEVNULL)
 
 
 def test_stash_policy_requires_confirmation_and_records_stash(tmp_path: Path):
