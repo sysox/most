@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 
+import yaml
+
 from .git_service import GitService
 from .models import AIIteration, new_id, record_payload, utc_now
 from .persistence import PersistenceCoordinator
@@ -160,6 +162,30 @@ class WorkspaceService:
             record_payload(iteration, record_type="AI_ITERATION"),
         )
         return iteration
+
+    def list_iterations(self, session_id: str) -> list[dict[str, object]]:
+        directory = self.store.root / "workspaces" / session_id / "iterations"
+        records = []
+        for path in sorted(directory.glob("*/iteration.yaml")):
+            value = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            if isinstance(value, dict):
+                records.append(value)
+        return records
+
+    def restore_iteration(self, session_id: str, sequence_number: int, *, confirm: bool = False) -> None:
+        iterations = self.list_iterations(session_id)
+        selected = next((item for item in iterations if item.get("sequence_number") == sequence_number), None)
+        if selected is None or not selected.get("resulting_commit"):
+            raise KeyError("iteration checkpoint not found")
+        self.git.restore_commit(str(selected["resulting_commit"]), confirm=confirm)
+
+    def finalize_workspace_session(self, session_id: str, action: str, *, confirm: bool = False) -> str:
+        allowed = {"KEEP_DETAILED_HISTORY", "SQUASH_TO_ONE_COMMIT", "SQUASH_BY_APPROVED_ITERATION", "EXPORT_PATCH_SERIES", "DISCARD_BRANCH"}
+        if action not in allowed:
+            raise ValueError(f"unsupported finalization action: {action}")
+        if action in {"SQUASH_TO_ONE_COMMIT", "SQUASH_BY_APPROVED_ITERATION", "DISCARD_BRANCH"} and not confirm:
+            raise PermissionError("destructive workspace finalization requires explicit confirmation")
+        return action
 
     def _read_lease(self, relative: str) -> WorkspaceLease | None:
         import yaml

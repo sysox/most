@@ -83,6 +83,17 @@ class GitService:
         supported = os.name != "nt" or longest <= max_length
         return {"supported": supported, "longest_path": longest, "limit": max_length}
 
+    def list_commits(self, limit: int = 50) -> list[str]:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        return self.run("log", f"-{limit}", "--format=%H").stdout.splitlines()
+
+    def restore_commit(self, commit: str, *, confirm: bool = False) -> GitResult:
+        self._validate_ref(commit)
+        if not confirm:
+            raise PermissionError("restoring a Git commit requires explicit confirmation")
+        return self.run("reset", "--hard", commit)
+
     def checkpoint(self, paths: list[str], *, message: str, trailers: dict[str, str]) -> str:
         if not paths:
             raise ValueError("checkpoint requires at least one path")
