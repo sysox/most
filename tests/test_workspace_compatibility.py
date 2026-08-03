@@ -1,16 +1,17 @@
-import subprocess
 from pathlib import Path
 
+from most.git_service import GitService
 from most.workspace import WorkspaceService
 
 
 def test_workspace_compatibility_report_exposes_isolation_decision(tmp_path: Path):
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, stdin=subprocess.DEVNULL)
-    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "test"], check=True, stdin=subprocess.DEVNULL)
-    subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "test@example.invalid"], check=True, stdin=subprocess.DEVNULL)
+    git = GitService(tmp_path)
+    git.initialize_repository()
+    git.run("config", "user.name", "test")
+    git.run("config", "user.email", "test@example.invalid")
     (tmp_path / "file.txt").write_text("content", encoding="utf-8")
-    subprocess.run(["git", "-C", str(tmp_path), "add", "file.txt"], check=True, stdin=subprocess.DEVNULL)
-    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "initial"], check=True, stdin=subprocess.DEVNULL)
+    git.run("add", "file.txt")
+    git.run("commit", "-qm", "initial")
     report = WorkspaceService(tmp_path / "data", tmp_path).compatibility_report()
     assert report["is_repository"] is True
     assert report["selected_fallback"] == "DEDICATED_WORKTREE"
