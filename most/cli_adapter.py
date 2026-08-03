@@ -80,9 +80,7 @@ class CLIAdapter:
             "stderr": subprocess.PIPE,
             "text": True,
         }
-        if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-        else:
+        if os.name != "nt":
             kwargs["start_new_session"] = True
         process = subprocess.Popen([executable, *arguments], **kwargs)  # type: ignore[arg-type]
         job_handle = _create_windows_job(process) if os.name == "nt" else None
