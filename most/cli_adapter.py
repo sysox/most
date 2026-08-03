@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .adapters import Connectivity, Observability
+from .redaction import redact_text
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,10 +112,10 @@ class CLIAdapter:
             changed = _workspace_changed(workspace_scanner, expected_workspace_state)
             return CancellationReport(True, True, process.returncode, changed)
 
-    def collect(self, execution: CLIExecution) -> tuple[str, str, int]:
+    def collect(self, execution: CLIExecution, secret_values: tuple[str, ...] = ()) -> tuple[str, str, int]:
         stdout, stderr = execution.process.communicate()
         _close_windows_job(execution.job_handle)
-        return stdout, stderr, execution.process.returncode or 0
+        return redact_text(stdout, secret_values), redact_text(stderr, secret_values), execution.process.returncode or 0
 
 
 def _create_windows_job(process: subprocess.Popen[str]):
