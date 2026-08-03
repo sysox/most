@@ -42,6 +42,17 @@ python -m most --data-root ./application-data browser-chat chatgpt
 python -m most --data-root ./application-data browser-chat claude
 ```
 
+If a provider blocks WebDriver sign-in, use manual browser relay mode. MOST
+opens the normal browser, and you copy the prompt and response yourself:
+
+```bash
+python -m most --data-root ./application-data browser-chat gemini --manual
+```
+
+This mode does not inspect cookies, automate login, bypass CAPTCHA, or evade
+provider security controls. It records the manually mediated exchange in the
+MOST journal.
+
 For Snap-packaged Firefox on Linux, use a visible profile root if Firefox
 cannot access the default hidden application-data path:
 

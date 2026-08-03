@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     browser_chat.add_argument("prompt", nargs="?")
     browser_chat.add_argument("--title", default="Browser AI chat")
     browser_chat.add_argument("--headless", action="store_true")
+    browser_chat.add_argument("--manual", action="store_true", help="use a normal browser with manual copy/paste")
     return parser
 
 
@@ -74,6 +75,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "chat":
         return run_chat(args)
     if args.command == "browser-chat":
+        if args.manual:
+            from .manual_browser_chat import run_manual_browser_chat
+            return run_manual_browser_chat(args)
         from .browser_chat import run_browser_chat
         return run_browser_chat(args)
     if args.command == "inspect-execution":

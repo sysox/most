@@ -17,3 +17,8 @@ def test_browser_chat_parser_requires_supported_provider():
     args = build_parser().parse_args(["browser-chat", "gemini", "hello"])
     assert args.provider == "gemini"
     assert args.prompt == "hello"
+
+
+def test_browser_chat_parser_supports_manual_relay():
+    args = build_parser().parse_args(["browser-chat", "chatgpt", "--manual"])
+    assert args.manual is True
