@@ -22,8 +22,11 @@ def build_parser() -> argparse.ArgumentParser:
     configuration.add_argument("--access-method", default="openai-compatible")
     subparsers.add_parser("list-sessions")
     subparsers.add_parser("list-configurations")
+    execution = subparsers.add_parser("inspect-execution")
+    execution.add_argument("execution_id")
     workspace = subparsers.add_parser("inspect-workspace")
     workspace.add_argument("repository", type=Path)
+    workspace.add_argument("--diff", action="store_true")
     return parser
 
 
@@ -46,6 +49,23 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(ConfigurationService(args.data_root).list(), indent=2, default=str))
         return 0
     if args.command == "inspect-workspace":
-        print(json.dumps(WorkspaceService(args.data_root, args.repository).inspect(), indent=2, default=str))
+        service = WorkspaceService(args.data_root, args.repository)
+        result = service.inspect()
+        if args.diff and result["is_repository"]:
+            result["diff"] = service.git.diff()
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+    if args.command == "inspect-execution":
+        execution_root = args.data_root / "executions"
+        direct_metadata = execution_root / args.execution_id / "metadata.yaml"
+        direct_events = execution_root / args.execution_id / "events.jsonl"
+        metadata = direct_metadata if direct_metadata.exists() else next(execution_root.glob(f"*/{args.execution_id}/metadata.yaml"), None)
+        events = direct_events if direct_events.exists() else next(execution_root.glob(f"*/{args.execution_id}/events.jsonl"), None)
+        if metadata is None:
+            raise SystemExit(f"execution not found: {args.execution_id}")
+        import yaml
+        result = {"metadata": yaml.safe_load(metadata.read_text(encoding="utf-8"))}
+        result["events"] = [json.loads(line) for line in events.read_text(encoding="utf-8").splitlines()] if events else []
+        print(json.dumps(result, indent=2, default=str))
         return 0
     return 2
