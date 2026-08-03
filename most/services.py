@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from .context import assemble_context
+from .context import apply_overflow_policy, assemble_context, estimate_tokens
 from .execution import transition
 from .journal import JournalService
-from .models import AIConfiguration, AIRequest, AISession, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, new_id, record_payload, utc_now
+from .models import AIConfiguration, AIRequest, AISession, ContextAssemblyRecord, Execution, ExecutionState, IntermediateResult, Interaction, SessionMode, new_id, record_payload, utc_now
 from .persistence import PersistenceCoordinator
 from .policies import evaluate_exposure, resolve_overflow_policy
 
@@ -56,6 +56,33 @@ class SessionService:
 
     def context_for(self, active_result_id: str):
         return assemble_context(active_result_id, self.results)
+
+    def assemble_request_context(self, session: AISession, interaction_id: str, active_result_id: str,
+                                 messages: list[dict[str, object]], configuration: AIConfiguration,
+                                 token_limit: int, reserved_output_tokens: int = 0) -> tuple[list[dict[str, object]], ContextAssemblyRecord]:
+        assembly = assemble_context(active_result_id, self.results)
+        selected, transformation = apply_overflow_policy(
+            messages,
+            token_limit=token_limit,
+            policy=configuration.context_overflow_policy,
+            reserved_output_tokens=reserved_output_tokens,
+        )
+        record = ContextAssemblyRecord(
+            session_id=session.id,
+            interaction_id=interaction_id,
+            active_result_id=active_result_id,
+            lineage_result_ids=list(assembly.lineage_result_ids),
+            excluded_result_ids=list(assembly.excluded_result_ids),
+            transformations=list(assembly.transformations) + [transformation],
+            token_estimate=estimate_tokens(selected) + reserved_output_tokens,
+            token_limit=token_limit,
+            overflow_policy=configuration.context_overflow_policy,
+        )
+        self.store.write_json(
+            f"sessions/{session.id}/structured/context-{record.id}.json",
+            record_payload(record, record_type="CONTEXT_ASSEMBLY"),
+        )
+        return selected, record
 
     def append_interaction(self, session: AISession, configuration_id: str, sequence_number: int) -> Interaction:
         interaction = Interaction(session_id=session.id, sequence_number=sequence_number, configuration_id=configuration_id)

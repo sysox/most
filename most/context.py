@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .models import IntermediateResult
+from .models import IntermediateResult, OverflowPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,3 +66,19 @@ def enforce_budget(messages: list[dict[str, Any]], *, token_limit: int,
     if estimate_tokens([message for _, message in working]) + reserved_output_tokens > token_limit:
         raise ContextOverflowError("context exceeds token limit; explicit selection or confirmation is required")
     return [message for _, message in working]
+
+
+def apply_overflow_policy(messages: list[dict[str, Any]], *, token_limit: int,
+                          policy: OverflowPolicy, reserved_output_tokens: int = 0,
+                          pinned_indices: set[int] | None = None) -> tuple[list[dict[str, Any]], str]:
+    estimate = estimate_tokens(messages) + reserved_output_tokens
+    if estimate <= token_limit:
+        return list(messages), "within budget"
+    if policy is OverflowPolicy.TRIM_OLDEST:
+        return enforce_budget(messages, token_limit=token_limit, reserved_output_tokens=reserved_output_tokens,
+                              pinned_indices=pinned_indices), "trimmed oldest eligible messages"
+    if policy is OverflowPolicy.SUMMARIZE_WITH_CONFIRMATION:
+        raise ContextOverflowError("context requires a stored summary and explicit confirmation")
+    if policy is OverflowPolicy.SELECT_MANUALLY:
+        raise ContextOverflowError("context selection is required")
+    raise ContextOverflowError(f"context estimate {estimate} exceeds limit {token_limit}")
