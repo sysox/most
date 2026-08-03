@@ -1,6 +1,6 @@
 # Multi-Provider AI Access Application
 
-**Specification version:** 12 — Final MVP Design
+**Specification version:** 13 — Clarified MVP Design
 
 ## 1. Project Goal
 
@@ -163,6 +163,10 @@ The safety kernel includes explicit policy resolution, deterministic context ass
 Advanced route inspection, language-specific symbol extraction, provider-specific tokenization, and browser selector diagnosis may be implemented progressively. Missing automation must result in an explicit conservative state that fails, pauses, or requires confirmation.
 
 The application itself should later be usable to improve its own source code through Workspace Mode.
+
+The implementation language, UI toolkit, and packaging technology are implementation
+choices. The first implementation must record these choices in the repository
+README and provide reproducible commands for setup, tests, linting, and packaging.
 
 ---
 
@@ -675,6 +679,10 @@ General rules:
 - internal Python or application names may use lowercase, but serialization is canonical;
 - unknown enum values must be preserved when reading newer records, not silently discarded.
 
+Markdown files used as human-readable content payloads are not persisted domain
+records and do not require a `PersistedRecordHeader`. Their owning YAML, JSON, or
+JSONL metadata record carries the record header and references the Markdown content.
+
 ## 7.10 ApplicationSettings
 
 Application-wide defaults and service configuration are owned by one explicit record.
@@ -1155,6 +1163,12 @@ ErrorEvent
 `sequence_number` is strictly increasing within one execution. Event hashes are optional for ordinary sessions and required when tamper-evident audit logging is enabled.
 
 Raw text deltas may be stored in `events.jsonl`, while meaningful assembled stages are stored as separate intermediate results.
+
+Execution-level `events.jsonl` is authoritative for raw execution stream events.
+The session-level `events.jsonl` described in §16 is a derived session projection
+containing only session-relevant events and may be rebuilt from authoritative
+execution records. A session projection must never be treated as a second source
+of truth.
 
 ---
 
@@ -1690,7 +1704,10 @@ It coordinates adapter observations with `NetworkInspector` and returns uncertai
 
 ## 14.14 PersistenceCoordinator
 
-All runtime file mutations must pass through a single-writer persistence coordinator.
+All application-data mutations must pass through a single-writer persistence
+coordinator. Workspace source-file mutations and Git metadata are controlled by
+`WorkspaceService` and `GitService`; they are not written through the application
+data coordinator. Their resulting states and observations are persisted through it.
 
 ```text
 enqueue_write()
@@ -1704,6 +1721,8 @@ release_data_root_lease()
 ```
 
 Adapters and UI components publish events; they do not write journal files directly.
+`GitService` serializes Git operations per repository and does not write application
+journal files directly.
 
 ---
 
@@ -1808,12 +1827,21 @@ sessions/
 ### Rules
 
 - every user interaction is appended to `interactions.jsonl`;
-- every stream event may be appended to `events.jsonl`;
+- session-relevant stream events may be projected to the session `events.jsonl`;
+  authoritative execution events remain under
+  `executions/<yyyy>/<mm>/<execution-id>/events.jsonl` as specified in §15;
 - every meaningful intermediate output gets its own file under `results/`;
 - `conversation.md` is a generated readable journal;
 - structured request and response snapshots are preserved;
 - the final result is identified in `session.yaml`;
 - no earlier result is overwritten.
+
+Logging policy does not permit silent loss of required history metadata. When
+payload logging is disabled for sensitive work, the application still records the
+event or result identity, type, timestamp, parent/linkage references, hashes when
+available, and an explicit redaction reason. The protected payload itself may be
+omitted. This preserves audit structure without forcing sensitive content into the
+journal.
 
 Example result lineage:
 
@@ -1986,7 +2014,9 @@ Iteration flow:
 
 ## 18.4 Checkpoint commits
 
-Each meaningful iteration should produce a checkpoint commit.
+Each meaningful iteration produces one checkpoint commit unless the user selects
+`MANUAL` checkpoint policy. Under `MANUAL`, the complete iteration remains in the
+journal and the user explicitly decides whether and when to create the checkpoint.
 
 Example history:
 
@@ -2045,6 +2075,21 @@ This creates bidirectional linkage:
 AI communication → Git commit
 Git commit        → AI communication
 ```
+
+Commit linkage uses a two-phase protocol. Before committing, the application writes
+the complete pre-commit iteration metadata, including the session, interaction,
+request, execution, input result, proposed patch, commands, tests, and final diff.
+The checkpoint commit includes stable identifiers in its commit message trailers.
+After Git returns the commit hash, the application atomically updates the
+authoritative application-data iteration record with `resulting_commit` and records
+the same hash in the communication journal. The resulting hash cannot be required
+in the files being committed because it does not exist before commit creation.
+
+If the journal is inside the project worktree, the post-commit linkage update is
+written as journal metadata outside the checkpoint commit or to the companion
+application-data root. It must not create a second AI checkpoint. A crash between
+the Git commit and the linkage update is recoverable by scanning commit trailers
+and completing the pending linkage record.
 
 ## 18.6 Dirty Working Tree Policy
 
@@ -2283,7 +2328,10 @@ Rules:
 - preserve incomplete executions;
 - store explicit completion markers;
 - make generated indexes rebuildable;
-- create Git commits only after file writes and metadata are complete.
+- create Git checkpoint commits only after source-file writes, pre-commit
+  iteration metadata, and required journal artifacts are complete;
+- complete the post-commit commit-hash linkage atomically after Git returns the
+  hash, using the recovery protocol in §18.5.
 
 The source files are authoritative. Any indexes are disposable caches.
 
@@ -2405,6 +2453,12 @@ For file-changing work, project files live in their Git repository and the linke
 
 - under `.ai-journal/`; or
 - in a separate companion journal repository.
+
+The application-data root remains the authoritative location for execution,
+session, and linkage records. A project-local `.ai-journal/` is a synchronized,
+human-readable export unless explicitly configured as the canonical journal
+location. When project-local journal files are canonical, post-commit linkage is
+still completed through the two-phase protocol in §18.5.
 
 ---
 
