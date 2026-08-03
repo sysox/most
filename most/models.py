@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import secrets
+import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
-from uuid import uuid4
 
 
 def new_id() -> str:
-    return str(uuid4())
+    """Return a sortable UUIDv7 identifier without an external dependency."""
+    timestamp_ms = int(time.time() * 1000) & ((1 << 48) - 1)
+    random_a = secrets.randbits(12)
+    random_b = secrets.randbits(62)
+    value = (timestamp_ms << 80) | (0x7 << 76) | (random_a << 64) | (0x2 << 62) | random_b
+    return str(uuid.UUID(int=value))
 
 
 def utc_now() -> str:
