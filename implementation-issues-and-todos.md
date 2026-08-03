@@ -17,7 +17,7 @@
 - [x] Reconcile mandatory preservation of intermediate results in §2.1 with the ability to disable intermediate-result logging in `LoggingPolicy` (§7.8). Resolved by requiring linkage metadata and explicit redaction records while allowing sensitive payload omission in `design.md` §16.
 - [x] Define whether `PersistenceCoordinator` controls only application-data writes or also workspace and Git file mutations (§14.14, §21.1). Resolved in `design.md` §14.14: workspace and Git mutations remain under `WorkspaceService` and `GitService`.
 - [x] Define how persisted-record headers apply to Markdown result files (§7.9, §15–§16). Resolved in `design.md` §7.9: owning structured metadata records carry the headers.
-- [ ] Select the initial UI and CLI technology; the architecture lists several interfaces but does not choose an MVP implementation.
+- [x] Select the initial UI and CLI technology; the MVP uses the standard-library CLI in `most/cli.py`, with execution and workspace inspection views.
 - [x] Define the canonical location and synchronization rules for workspace journals (§15, §18.1, §19). Resolved in `design.md` §24: application data is authoritative and project-local journals are synchronized exports unless explicitly configured otherwise.
 - [x] Clarify whether checkpoint commits are mandatory by default or optional according to policy (§18.4, §18.9, §25). Resolved in `design.md` §18.4: one checkpoint per meaningful iteration unless `MANUAL` is selected.
 - [ ] Define credential-handle lifetime, memory handling, redaction, and adapter access rules (§7.6, §12.1).
@@ -68,17 +68,17 @@
 
 ## Workspace and Git TODOs
 
-- [ ] Require Git for every file-changing AI session (§2.2, §18).
-- [ ] Prevent AI changes directly on the main branch (§22, §23).
+- [x] Require Git for every file-changing AI session (§2.2, §18). `WorkspaceService.prepare_ai_workspace()` refuses non-repositories.
+- [x] Prevent AI changes directly on the main branch (§22, §23). Workspace preparation uses `ai/<session-id>` branches and dedicated worktrees/clones.
 - [x] Implement dirty-tree inspection and the configured policies `REQUIRE_CLEAN`, `ISOLATE_FROM_HEAD`, `IMPORT_USER_SNAPSHOT`, and `STASH_WITH_CONFIRMATION` (§18.6).
-- [ ] Implement dedicated branches and worktrees with the documented fallback chain (§18.2, §18.7).
+- [x] Implement dedicated branches and worktrees with the documented fallback chain (§18.2, §18.7). Worktree creation falls back to an isolated clone and clean-policy failures refuse direct editing.
 - [ ] Inspect and handle submodules, Git LFS, filesystem permissions, and Windows path limits (§18.7).
 - [x] Implement recoverable workspace leases and one active writer per AI worktree (§18.8).
 - [x] Detect unexpected file hashes or Git-state changes and pause with `WORKSPACE_DIVERGED` (§18.8).
 - [x] Implement the `AIIteration` record and store plans, patches, commands, tests, reviews, diffs, and commit references (§18.3, §19).
 - [x] Create checkpoint commits for meaningful iterations and include session/iteration metadata (§18.4).
 - [x] Link each checkpoint bidirectionally to the exact AI request and execution (§18.5).
-- [ ] Require explicit approval for merge, squash, history rewrite, destructive recovery, and finalization (§18.9, §23).
+- [x] Require explicit approval for merge, squash, history rewrite, destructive recovery, and finalization (§18.9, §23).
 - [x] Implement restore, compare, export, reject, and workspace-session finalization flows (§18.9).
 
 ## Testing and Validation TODOs
