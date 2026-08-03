@@ -95,12 +95,6 @@ class CLIAdapter:
         if process.poll() is not None:
             return CancellationReport(False, False, process.returncode)
         if os.name == "nt":
-            # GenerateConsoleCtrlEvent broadcasts on the console; delivery of
-            # CTRL_BREAK_EVENT to our own process, not only the target's
-            # process group, has been observed on CI-hosted consoles. Ignore
-            # it here so a leaked event never raises KeyboardInterrupt in, or
-            # terminates, the orchestrating process itself.
-            signal.signal(signal.SIGBREAK, signal.SIG_IGN)  # type: ignore[attr-defined]
             process.send_signal(signal.CTRL_BREAK_EVENT)
         else:
             os.killpg(process.pid, signal.SIGTERM)
