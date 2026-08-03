@@ -95,20 +95,25 @@ class CLIAdapter:
         if process.poll() is not None:
             return CancellationReport(False, False, process.returncode)
         if os.name == "nt":
-            process.send_signal(signal.CTRL_BREAK_EVENT)
-        else:
-            os.killpg(process.pid, signal.SIGTERM)
+            # GenerateConsoleCtrlEvent broadcasts on the console shared with
+            # the parent; it has been observed to also strike unrelated
+            # sibling processes and the orchestrating process itself, not
+            # only the targeted process group. Terminate through the Job
+            # Object instead, which isolates the descendant tree without any
+            # console-wide signal.
+            _terminate_windows_job(execution.job_handle, process)
+            process.wait()
+            _close_windows_job(execution.job_handle)
+            changed = _workspace_changed(workspace_scanner, expected_workspace_state)
+            return CancellationReport(True, True, process.returncode, changed)
+        os.killpg(process.pid, signal.SIGTERM)
         try:
             process.wait(timeout=grace_seconds)
             changed = _workspace_changed(workspace_scanner, expected_workspace_state)
             return CancellationReport(True, False, process.returncode, changed)
         except subprocess.TimeoutExpired:
-            if os.name == "nt":
-                _terminate_windows_job(execution.job_handle, process)
-            else:
-                os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGKILL)
             process.wait()
-            _close_windows_job(execution.job_handle)
             changed = _workspace_changed(workspace_scanner, expected_workspace_state)
             return CancellationReport(True, True, process.returncode, changed)
 
