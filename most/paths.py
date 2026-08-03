@@ -16,6 +16,9 @@ def application_data_root(application_name: str = "most") -> Path:
 
 
 def managed_browser_profile_root(application_name: str = "most") -> Path:
+    override = os.environ.get("MOST_BROWSER_PROFILE_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
     return application_data_root(application_name) / "browser-profiles"
 
 

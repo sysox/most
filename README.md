@@ -42,6 +42,14 @@ python -m most --data-root ./application-data browser-chat chatgpt
 python -m most --data-root ./application-data browser-chat claude
 ```
 
+For Snap-packaged Firefox on Linux, use a visible profile root if Firefox
+cannot access the default hidden application-data path:
+
+```bash
+export MOST_BROWSER_PROFILE_ROOT="$HOME/most-browser-profiles"
+mkdir -p "$MOST_BROWSER_PROFILE_ROOT"
+```
+
 The command opens the provider site, pauses for manual login, and then records
 the conversation and execution in the same file-backed journal. It does not
 bypass login, CAPTCHA, consent, rate limits, or other site controls.
