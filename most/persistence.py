@@ -183,11 +183,37 @@ class PersistenceCoordinator:
         if values.get("host_identifier") != socket.gethostname():
             return True
         try:
-            os.kill(int(values["process_id"]), 0)
+            process_id = int(values["process_id"])
+        except (KeyError, ValueError, TypeError):
+            return True
+        if os.name == "nt":
+            return _windows_process_exists(process_id)
+        try:
+            os.kill(process_id, 0)
         except ProcessLookupError:
             return False
         except (PermissionError, KeyError, ValueError):
             return True
+        return True
+
+
+def _windows_process_exists(process_id: int) -> bool:
+    """Return whether a Windows process exists, conservatively on API errors."""
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(0x1000, False, process_id)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return ctypes.get_last_error() not in {2, 3, 87}
+    except (AttributeError, OSError, TypeError, ValueError):
         return True
 
 
