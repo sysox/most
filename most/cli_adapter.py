@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,12 +18,17 @@ class CLIExecution:
     working_directory: str
     job_handle: Any = None
 
+    @property
+    def redacted_command(self) -> tuple[str, ...]:
+        return redact_command(self.command)
+
 
 @dataclass(frozen=True, slots=True)
 class CancellationReport:
     requested: bool
     forced: bool
     returncode: int | None
+    workspace_changed: bool | None = None
 
 
 class CLIAdapter:
@@ -47,7 +53,9 @@ class CLIAdapter:
         job_handle = _create_windows_job(process) if os.name == "nt" else None
         return CLIExecution(process, (executable, *arguments), str(working_directory), job_handle)
 
-    def cancel(self, execution: CLIExecution, grace_seconds: float = 5.0) -> CancellationReport:
+    def cancel(self, execution: CLIExecution, grace_seconds: float = 5.0,
+               workspace_scanner: Callable[[], object] | None = None,
+               expected_workspace_state: object | None = None) -> CancellationReport:
         process = execution.process
         if process.poll() is not None:
             return CancellationReport(False, False, process.returncode)
@@ -57,7 +65,8 @@ class CLIAdapter:
             os.killpg(process.pid, signal.SIGTERM)
         try:
             process.wait(timeout=grace_seconds)
-            return CancellationReport(True, False, process.returncode)
+            changed = _workspace_changed(workspace_scanner, expected_workspace_state)
+            return CancellationReport(True, False, process.returncode, changed)
         except subprocess.TimeoutExpired:
             if os.name == "nt":
                 _terminate_windows_job(execution.job_handle, process)
@@ -65,7 +74,8 @@ class CLIAdapter:
                 os.killpg(process.pid, signal.SIGKILL)
             process.wait()
             _close_windows_job(execution.job_handle)
-            return CancellationReport(True, True, process.returncode)
+            changed = _workspace_changed(workspace_scanner, expected_workspace_state)
+            return CancellationReport(True, True, process.returncode, changed)
 
     def collect(self, execution: CLIExecution) -> tuple[str, str, int]:
         stdout, stderr = execution.process.communicate()
@@ -128,3 +138,27 @@ def _close_windows_job(handle) -> None:
     if os.name == "nt" and handle is not None:
         import ctypes
         ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(handle)
+
+
+def redact_command(command: tuple[str, ...], sensitive_flags: frozenset[str] = frozenset({"--api-key", "--token", "--password", "--secret"})) -> tuple[str, ...]:
+    redacted: list[str] = []
+    mask_next = False
+    for argument in command:
+        if mask_next:
+            redacted.append("<redacted>")
+            mask_next = False
+        elif argument in sensitive_flags:
+            redacted.append(argument)
+            mask_next = True
+        elif any(argument.startswith(f"{flag}=") for flag in sensitive_flags):
+            redacted.append(argument.split("=", 1)[0] + "=<redacted>")
+        else:
+            redacted.append(argument)
+    return tuple(redacted)
+
+
+def _workspace_changed(scanner: Callable[[], object] | None, expected: object | None) -> bool | None:
+    if scanner is None:
+        return None
+    current = scanner()
+    return expected is not None and current != expected
