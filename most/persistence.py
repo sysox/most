@@ -42,11 +42,13 @@ class PersistenceCoordinator:
     def acquire_data_root_lease(self, timeout_seconds: int = 300) -> DataRootLease:
         path = self._target(".data-root.lease.yaml")
         existing = None
+        recovered = False
         if path.exists():
             existing = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             if self._existing_lease_active(existing):
                 raise RuntimeError("application-data root already has an active lease")
             path.unlink()
+            recovered = True
         now = _now()
         lease = DataRootLease(os.urandom(16).hex(), os.getpid(), socket.gethostname(), now, now, timeout_seconds)
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -58,6 +60,12 @@ class PersistenceCoordinator:
         except Exception:
             path.unlink(missing_ok=True)
             raise
+        if recovered:
+            self.append_versioned_jsonl(
+                "diagnostics/lease-events.jsonl",
+                [{"event_type": "stale_lease_recovered", "old_lease_id": existing.get("lease_id")}],
+                record_type="LEASE_EVENT",
+            )
         return lease
 
     def heartbeat_data_root_lease(self, lease: DataRootLease) -> DataRootLease:
