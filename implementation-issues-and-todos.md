@@ -2,13 +2,13 @@
 
 ## Repository Issues
 
-- [ ] Add the application source tree.
-- [ ] Choose and document the implementation language and framework.
-- [ ] Add dependency and build manifests.
+- [x] Add the application source tree. Initial Python safety-kernel package is present under `most/`.
+- [x] Choose and document the implementation language and framework. Python with `uv`, setuptools, PyYAML, and cryptography is documented in `pyproject.toml` and `README.md`.
+- [x] Add dependency and build manifests. `pyproject.toml` and `uv.lock` are present.
 - [ ] Add configuration schemas and serialization code.
-- [ ] Add automated tests and test configuration.
-- [ ] Expand `README.md` with setup, development, and usage instructions.
-- [ ] Add repository ignore rules, including protection for secrets, browser profiles, journals, artifacts, and generated files.
+- [x] Add automated tests and test configuration. `tests/` and pytest configuration are present.
+- [x] Expand `README.md` with setup, development, and usage instructions.
+- [x] Add repository ignore rules, including protection for secrets, browser profiles, journals, artifacts, and generated files.
 
 ## Design Decisions to Resolve
 
