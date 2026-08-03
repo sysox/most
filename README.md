@@ -15,6 +15,10 @@ Basic commands:
 ```bash
 python -m most --data-root ./application-data create-session "Research"
 python -m most --data-root ./application-data create-configuration "Local Ollama" --provider local/Ollama
+python -m most --data-root ./application-data list-sessions
+python -m most --data-root ./application-data list-configurations
+python -m most --data-root ./application-data inspect-execution <execution-id>
+python -m most --data-root ./application-data inspect-workspace <repository> --diff
 ```
 
 The current implementation starts with portable domain records, deterministic
