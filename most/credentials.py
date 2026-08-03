@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from secrets import token_urlsafe
 
@@ -16,6 +17,49 @@ class CredentialReference:
     storage_backend: str
     storage_key: str
     display_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class CredentialHandle:
+    handle_id: str
+    reference_id: str
+    expires_at: str
+
+    def __str__(self) -> str:
+        return self.handle_id
+
+
+class CredentialService:
+    """Issues short-lived opaque handles over a backend credential store."""
+
+    def __init__(self, backend):
+        self.backend = backend
+        self._references: dict[str, CredentialReference] = {}
+        self._handles: dict[str, tuple[CredentialHandle, CredentialReference]] = {}
+
+    def register(self, reference: CredentialReference) -> None:
+        self._references[reference.id] = reference
+
+    def issue_handle(self, reference: CredentialReference, ttl_seconds: int = 60) -> CredentialHandle:
+        if ttl_seconds <= 0:
+            raise ValueError("credential handle TTL must be positive")
+        self.register(reference)
+        expires = datetime.now(UTC) + timedelta(seconds=ttl_seconds)
+        handle = CredentialHandle(token_urlsafe(24), reference.id, expires.isoformat(timespec="milliseconds").replace("+00:00", "Z"))
+        self._handles[handle.handle_id] = (handle, reference)
+        return handle
+
+    def resolve_handle(self, handle: CredentialHandle) -> str:
+        stored = self._handles.get(handle.handle_id)
+        if stored is None or stored[0] != handle:
+            raise PermissionError("unknown credential handle")
+        if datetime.now(UTC) >= datetime.fromisoformat(handle.expires_at):
+            self._handles.pop(handle.handle_id, None)
+            raise PermissionError("credential handle expired")
+        return self.backend.resolve(stored[1])
+
+    def revoke_handle(self, handle: CredentialHandle) -> None:
+        self._handles.pop(handle.handle_id, None)
 
 
 class InMemoryCredentialStore:
