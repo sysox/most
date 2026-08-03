@@ -67,7 +67,8 @@ class BrowserAdapter:
         if not isinstance(profile, str):
             return ["profile_path is required"]
         try:
-            self.profile_service.validate_isolated_profile_path(Path(profile), [])
+            forbidden = [Path(str(path)) for path in configuration.get("forbidden_roots", []) if isinstance(path, str)]
+            self.profile_service.validate_isolated_profile_path(Path(profile), forbidden)
         except BrowserProfileIsolationError as exc:
             return [str(exc)]
         return []

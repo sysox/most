@@ -23,6 +23,16 @@ def test_browser_adapter_uses_versioned_selector_pack(tmp_path: Path):
     assert result == {"text": "answer", "selector_pack_version": "1"}
 
 
+def test_browser_adapter_rejects_forbidden_root_overlap(tmp_path: Path):
+    profile = IsolatedBrowserProfileService(tmp_path / "profiles")
+    adapter = BrowserAdapter(profile)
+    errors = adapter.validate_configuration({
+        "profile_path": str(tmp_path / "profiles" / "p"),
+        "forbidden_roots": [str(tmp_path / "profiles")],
+    })
+    assert errors
+
+
 def test_response_normalization_rejects_provider_error():
     with pytest.raises(RuntimeError):
         normalize_response(HTTPResponse(500, {}))
