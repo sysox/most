@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from types import MappingProxyType
 from typing import Any, Protocol
 
 
@@ -58,6 +59,16 @@ class AdapterExecutionContext:
     cancellation_handle: Any = None
     event_sink: Any = None
     platform_services: Any = None
+
+
+def immutable_snapshot(value: Any) -> Any:
+    if isinstance(value, dict):
+        return MappingProxyType({key: immutable_snapshot(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(immutable_snapshot(item) for item in value)
+    if isinstance(value, set):
+        return frozenset(value)
+    return value
 
 
 class Adapter(Protocol):

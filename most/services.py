@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from .adapters import AdapterRegistry, Connectivity
+from .adapters import (
+    AdapterExecutionContext,
+    AdapterRegistry,
+    Connectivity,
+    EffectiveCapabilities,
+    immutable_snapshot,
+)
 from .context import apply_overflow_policy, assemble_context, estimate_tokens
 from .execution import transition
 from .journal import JournalService
@@ -194,6 +200,20 @@ class ExecutionManager:
         )
         self.store.write_yaml(f"executions/{execution.id}/metadata.yaml", record_payload(execution, record_type="EXECUTION"))
         return execution
+
+    def build_adapter_context(self, execution: Execution, request: AIRequest, configuration: AIConfiguration,
+                              connectivity: Connectivity, capabilities: EffectiveCapabilities,
+                              credential_handle: str | None = None, workspace_scope: tuple[str, ...] = ()) -> AdapterExecutionContext:
+        return AdapterExecutionContext(
+            execution_id=execution.id,
+            request_snapshot=immutable_snapshot(record_payload(request, record_type="AI_REQUEST")),
+            configuration_snapshot=immutable_snapshot(record_payload(configuration, record_type="AI_CONFIGURATION")),
+            effective_capabilities=capabilities,
+            context_assembly_record=immutable_snapshot({}),
+            resolved_connectivity=connectivity,
+            credential_handle=credential_handle,
+            workspace_scope=workspace_scope,
+        )
 
     def validate_connectivity(self, execution: Execution, *, resolved_location: str, resolved_network: str | None,
                               confirmation: bool = False, resolved_confidence: str | None = None,
