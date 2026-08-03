@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0", "cryptography>=42.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "ruff>=0.8"]
 
 [tool.setuptools.packages.find]
 include = ["most*"]

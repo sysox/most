@@ -5,10 +5,9 @@ Python file-based safety kernel for the multi-provider AI access application.
 ## Development
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e '.[dev]'
-python -m pytest
+uv sync --extra dev
+uv run pytest
+uv run ruff check most tests
 ```
 
 Basic commands:
