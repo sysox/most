@@ -4,8 +4,10 @@ import argparse
 import json
 from pathlib import Path
 
-from .models import AIConfiguration, SessionMode
-from .services import ConfigurationService, SessionService
+from .adapters import create_default_registry
+from .models import AIConfiguration, AIRequest, IntermediateResult, SessionMode
+from .openai_compatible import normalize_response
+from .services import ConfigurationService, ExecutionManager, SessionService
 from .workspace import WorkspaceService
 
 
@@ -29,6 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
     workspace.add_argument("--diff", action="store_true")
     workspace.add_argument("--compatibility", action="store_true")
     workspace.add_argument("--history", action="store_true")
+    chat = subparsers.add_parser("chat", help="communicate with a local OpenAI-compatible runtime")
+    chat.add_argument("prompt", nargs="?")
+    chat.add_argument("--model", default="granite4.1:3b")
+    chat.add_argument("--base-url", default="http://127.0.0.1:11434/v1")
+    chat.add_argument("--title", default="Local AI chat")
     return parser
 
 
@@ -59,6 +66,8 @@ def main(argv: list[str] | None = None) -> int:
             result["history"] = service.history()
         print(json.dumps(result, indent=2, default=str))
         return 0
+    if args.command == "chat":
+        return run_chat(args)
     if args.command == "inspect-execution":
         execution_root = args.data_root / "executions"
         direct_metadata = execution_root / args.execution_id / "metadata.yaml"
@@ -73,3 +82,69 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, default=str))
         return 0
     return 2
+
+
+def run_chat(args: argparse.Namespace, *, registry=None) -> int:
+    """Run a journaled local chat session through an OpenAI-compatible adapter."""
+    root = args.data_root
+    sessions = SessionService(root)
+    session = sessions.create(args.title)
+    configuration = AIConfiguration(
+        name=f"Local: {args.model}",
+        provider_id="local",
+        access_method_id="openai-compatible",
+        model_reference=args.model,
+        location="local",
+        network="localhost",
+        adapter_options={"base_url": args.base_url},
+    )
+    ConfigurationService(root).save(configuration)
+    manager = ExecutionManager(root)
+    adapter = (registry or create_default_registry()).get("openai-compatible")
+    messages: list[dict[str, str]] = []
+    prompt = args.prompt
+    while True:
+        if prompt is None:
+            try:
+                prompt = input("you> ")
+            except EOFError:
+                break
+        prompt = prompt.strip()
+        if not prompt:
+            prompt = None
+            continue
+        if prompt.lower() in {"/exit", "/quit"}:
+            break
+        messages.append({"role": "user", "content": prompt})
+        interaction = sessions.append_interaction(session, configuration.id, len(messages))
+        request = AIRequest(
+            session_id=session.id,
+            interaction_id=interaction.id,
+            configuration_id=configuration.id,
+            messages=list(messages),
+        )
+        execution = manager.prepare(request, configuration, session)
+        execution, response = manager.execute(execution, request, configuration, adapter)
+        normalized = normalize_response(response)
+        content = "".join(
+            str(part.get("text", ""))
+            for part in normalized["content_parts"]
+            if isinstance(part, dict)
+        )
+        result = IntermediateResult(
+            session_id=session.id,
+            interaction_id=interaction.id,
+            execution_id=execution.id,
+            sequence_number=len(messages),
+            result_type="response",
+            parent_result_id=session.active_result_id,
+        )
+        sessions.add_result(result, content)
+        session.active_result_id = result.id
+        messages.append({"role": "assistant", "content": content})
+        print(f"assistant> {content}")
+        if args.prompt is not None:
+            break
+        prompt = None
+    print(f"session: {session.id}")
+    return 0
