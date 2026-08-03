@@ -20,6 +20,21 @@ class HTTPResponse:
     body: dict[str, Any]
 
 
+def normalize_response(response: HTTPResponse) -> dict[str, Any]:
+    if response.status >= 400:
+        raise RuntimeError(f"provider returned HTTP {response.status}")
+    body = response.body
+    choices = body.get("choices")
+    if not isinstance(choices, list):
+        raise TypeError("provider response does not contain choices")
+    return {
+        "content_parts": [{"type": "text", "text": choice.get("message", {}).get("content", "")} for choice in choices],
+        "finish_status": choices[0].get("finish_reason") if choices else None,
+        "usage": body.get("usage", {}),
+        "provider_metadata": {key: value for key, value in body.items() if key not in {"choices", "usage"}},
+    }
+
+
 class OpenAICompatibleAdapter:
     adapter_type = "openai-compatible"
 
@@ -62,3 +77,13 @@ class OpenAICompatibleAdapter:
             headers["authorization"] = f"Bearer {credential_handle}"
         payload = {**request, "model": configuration["model_reference"]}
         return self.transport(options["base_url"].rstrip("/") + "/chat/completions", headers, payload)
+
+    def stream(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None):
+        """Yield provider-supplied stream records without fabricating hidden steps."""
+        response = self.execute({**request, "stream": True}, configuration, credential_handle)
+        events = response.body.get("events", [])
+        if not isinstance(events, list):
+            raise TypeError("stream transport must return an events list")
+        for event in events:
+            if isinstance(event, dict):
+                yield event
