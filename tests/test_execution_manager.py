@@ -28,3 +28,5 @@ def test_execution_manager_checks_then_runs_adapter(tmp_path: Path):
     execution, response = manager.execute(execution, request, configuration, FakeAdapter(), "opaque")
     assert execution.state.value == "completed"
     assert response["credential_received"]
+    response_files = list((tmp_path / "sessions" / session.id / "structured").glob("response-*.json"))
+    assert response_files

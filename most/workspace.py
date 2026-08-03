@@ -136,6 +136,12 @@ class WorkspaceService:
                     raise
                 self.git.create_isolated_clone(destination, branch, base)
                 return WorkspaceIsolation("ISOLATED_TEMPORARY_CLONE", destination, base, branch, status, snapshot_reference)
+        if policy is DirtyTreePolicy.REQUIRE_CLEAN:
+            try:
+                self.git.create_worktree(destination, branch, base)
+                return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status, snapshot_reference)
+            except RuntimeError as exc:
+                raise RuntimeError("clean workspace could not be isolated into a dedicated worktree") from exc
         if policy is DirtyTreePolicy.STASH_WITH_CONFIRMATION:
             self.git.create_worktree(destination, branch, base)
             return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status, snapshot_reference)

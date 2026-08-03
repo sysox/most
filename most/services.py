@@ -35,6 +35,7 @@ from .network import NetworkInspector
 from .persistence import PersistenceCoordinator
 from .policies import PolicyOverrides, evaluate_exposure, resolve_policies
 from .schemas import require_valid_ai_configuration
+from .workspace_context import WorkspaceContextSelector
 
 
 class SettingsService:
@@ -136,16 +137,57 @@ class SessionService:
     def context_for(self, active_result_id: str):
         return assemble_context(active_result_id, self.results)
 
-    def assemble_request_context(self, session: AISession, interaction_id: str, active_result_id: str,
-                                 messages: list[dict[str, object]], configuration: AIConfiguration,
-                                 token_limit: int, reserved_output_tokens: int = 0) -> tuple[list[dict[str, object]], ContextAssemblyRecord]:
+    def assemble_request_context(
+        self,
+        session: AISession,
+        interaction_id: str,
+        active_result_id: str,
+        messages: list[dict[str, object]],
+        configuration: AIConfiguration,
+        token_limit: int,
+        reserved_output_tokens: int = 0,
+        workspace_repository: Path | None = None,
+        workspace_paths: tuple[str, ...] = (),
+    ) -> tuple[list[dict[str, object]], ContextAssemblyRecord]:
         assembly = assemble_context(active_result_id, self.results)
+        source_selection = None
+        source_messages: list[dict[str, object]] = []
+        if workspace_repository is not None:
+            options = configuration.adapter_options.get("workspace_context", {})
+            if not isinstance(options, dict):
+                raise ValueError("workspace_context options must be a mapping")
+            selector = WorkspaceContextSelector(workspace_repository)
+            source_selection = selector.select(
+                configuration.workspace_context_strategy,
+                explicit_paths=workspace_paths,
+                include_patterns=tuple(str(value) for value in options.get("include_patterns", ())),
+                exclude_patterns=tuple(str(value) for value in options.get("exclude_patterns", ())),
+                include_git_diff=bool(options.get("include_git_diff", False)),
+                max_files=int(options["max_files"]) if options.get("max_files") is not None else None,
+                max_bytes=int(options["max_bytes"]) if options.get("max_bytes") is not None else None,
+            )
+            source_messages = [
+                {"role": "system", "content": f"[workspace file: {item.path}]\n{item.content}"}
+                for item in source_selection.files
+            ]
+            if source_selection.git_diff:
+                source_messages.append({"role": "system", "content": f"[workspace git diff]\n{source_selection.git_diff}"})
+        combined_messages = source_messages + messages
         selected, transformation = apply_overflow_policy(
-            messages,
+            combined_messages,
             token_limit=token_limit,
             policy=configuration.context_overflow_policy,
             reserved_output_tokens=reserved_output_tokens,
+            pinned_indices=set(range(len(source_messages))),
         )
+        metadata: dict[str, object] = {}
+        if source_selection is not None:
+            metadata["workspace_files"] = [
+                {"path": item.path, "sha256": item.sha256, "size": item.size}
+                for item in source_selection.files
+            ]
+            metadata["workspace_excluded_paths"] = list(source_selection.excluded_paths)
+            metadata["workspace_git_diff_included"] = source_selection.git_diff is not None
         record = ContextAssemblyRecord(
             session_id=session.id,
             interaction_id=interaction_id,
@@ -153,9 +195,11 @@ class SessionService:
             lineage_result_ids=list(assembly.lineage_result_ids),
             excluded_result_ids=list(assembly.excluded_result_ids),
             transformations=list(assembly.transformations) + [transformation],
+            workspace_context_strategy=configuration.workspace_context_strategy,
             token_estimate=estimate_tokens(selected) + reserved_output_tokens,
             token_limit=token_limit,
             overflow_policy=configuration.context_overflow_policy,
+            metadata=metadata,
         )
         self.store.write_json(
             f"sessions/{session.id}/structured/context-{record.id}.json",
@@ -199,6 +243,7 @@ class SessionService:
 class ExecutionManager:
     def __init__(self, root: Path, network_inspector: NetworkInspector | None = None):
         self.store = PersistenceCoordinator(root)
+        self.journal = JournalService(root)
         self.network_inspector = network_inspector or NetworkInspector()
 
     def prepare(self, request: AIRequest, configuration: AIConfiguration, session: AISession) -> Execution:
@@ -309,11 +354,22 @@ class ExecutionManager:
         execution, event = transition(execution, ExecutionState.RUNNING)
         self._event(execution, event)
         try:
+            self.journal.record_request(execution.session_id, request)
             response = adapter.execute(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle)
+            self.journal.record_response(
+                execution.session_id,
+                new_id(),
+                _response_payload(response),
+            )
             execution, event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, event)
             return execution, response
         except Exception as exc:
+            self.journal.record_error(
+                execution.session_id,
+                new_id(),
+                {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
+            )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, event = transition(failed, ExecutionState.FAILED)
             self._event(failed, event)
@@ -342,6 +398,7 @@ class ExecutionManager:
         observed: list[StreamEvent] = []
         previous_hash = None
         try:
+            self.journal.record_request(execution.session_id, request)
             for item in adapter.stream(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle):
                 event = create_stream_event(
                     execution.id,
@@ -362,10 +419,20 @@ class ExecutionManager:
                         "event_hash": event.event_hash,
                     }], record_type="STREAM_EVENT",
                 )
+            self.journal.record_response(
+                execution.session_id,
+                new_id(),
+                {"execution_id": execution.id, "stream_events": [event.payload for event in observed]},
+            )
             execution, status_event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, status_event)
             return execution, observed
         except Exception as exc:
+            self.journal.record_error(
+                execution.session_id,
+                new_id(),
+                {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
+            )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, status_event = transition(failed, ExecutionState.FAILED)
             self._event(failed, status_event)
@@ -411,3 +478,14 @@ class ExecutionManager:
         errors = validate(record_payload(configuration, record_type="AI_CONFIGURATION"))
         if errors:
             raise ValueError("invalid adapter configuration: " + "; ".join(str(error) for error in errors))
+
+
+def _response_payload(response: object) -> dict[str, object]:
+    """Convert adapter responses to a redacted-journal-friendly mapping."""
+    if isinstance(response, dict):
+        return response
+    body = getattr(response, "body", None)
+    status = getattr(response, "status", None)
+    if isinstance(body, dict):
+        return {"status": status, "body": body}
+    return {"value": str(response)}

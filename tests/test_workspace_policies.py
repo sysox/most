@@ -36,3 +36,13 @@ def test_import_snapshot_requires_explicit_confirmation(tmp_path: Path):
     service = WorkspaceService(tmp_path / "data", repo)
     with pytest.raises(PermissionError):
         service.prepare_ai_workspace("s", policy=DirtyTreePolicy.IMPORT_USER_SNAPSHOT, snapshot_patch=patch)
+
+
+def test_require_clean_uses_dedicated_worktree_when_clean(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _repo(repo)
+    service = WorkspaceService(tmp_path / "data", repo)
+    result = service.prepare_ai_workspace("s", policy=DirtyTreePolicy.REQUIRE_CLEAN)
+    assert result.tier == "DEDICATED_WORKTREE"
+    assert result.branch == "ai/s"
