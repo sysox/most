@@ -1,6 +1,6 @@
 # Multi-Provider AI Access Application
 
-**Specification version:** 7
+**Specification version:** 10
 
 ## 1. Project Goal
 
@@ -134,7 +134,7 @@ The application must preserve both:
 
 The first version should prioritize:
 
-- fast implementation;
+- a small implementation surface;
 - minimal dependencies;
 - readable files;
 - Git-friendly history;
@@ -143,7 +143,24 @@ The first version should prioritize:
 - replaceable persistence interfaces;
 - no SQL database;
 - no ORM;
-- no database migrations.
+- no database migrations;
+- safe failure instead of silent degradation.
+
+The MVP is divided into two layers:
+
+```text
+MVP Safety Kernel
+    Required before protected data can be transmitted or workspace files can
+    be changed.
+
+Progressive Detection Enhancements
+    Improve automation and confidence but may initially return DECLARED or
+    UNKNOWN instead of making unreliable guesses.
+```
+
+The safety kernel includes explicit policy resolution, deterministic context assembly, single-writer persistence, complete process-tree cancellation, recoverable leases, isolated Git workspaces, and browser-profile path isolation.
+
+Advanced route inspection, language-specific symbol extraction, provider-specific tokenization, and browser selector diagnosis may be implemented progressively. Missing automation must result in an explicit conservative state that fails, pauses, or requires confirmation.
 
 The application itself should later be usable to improve its own source code through Workspace Mode.
 
@@ -263,6 +280,7 @@ PlatformServices
 ├── ProcessService
 ├── BrowserProfileService
 ├── FilePermissionService
+├── NetworkInspector
 ├── NotificationService
 └── ApplicationDataService
 ```
@@ -291,6 +309,22 @@ Windows:
 ```
 
 All path and process handling must use platform-neutral abstractions.
+
+Required platform-level operations include:
+
+```text
+ProcessService
+- create_process_isolation()
+- terminate_process_tree()
+- release_process_isolation()
+
+BrowserProfileService
+- validate_isolated_profile_path()
+
+NetworkInspector
+- inspect_endpoint_path()
+- return confidence and evidence
+```
 
 ---
 
@@ -335,6 +369,9 @@ AIConfiguration
 - credential_reference
 - location
 - network
+- exposure_transition_policy_reference
+- context_overflow_policy
+- workspace_context_strategy
 - privacy_policy
 - logging_policy
 - usage_notes
@@ -371,7 +408,90 @@ custom
 
 Protocol details such as base URL, headers, certificates, and timeouts remain inside `adapter_options`.
 
-## 7.4 AccessMethod
+Policy and strategy resolution use these precedence rules:
+
+```text
+ExposureTransitionPolicy
+1. per-execution override, only when explicitly permitted by the configuration;
+2. AIConfiguration.exposure_transition_policy_reference;
+3. application default exposure policy;
+4. built-in default: FAIL.
+
+Context overflow policy
+1. per-request override;
+2. AIConfiguration.context_overflow_policy;
+3. application default context-overflow policy;
+4. built-in default: FAIL.
+
+Workspace context strategy
+1. per-interaction override;
+2. AIConfiguration.workspace_context_strategy;
+3. workspace default;
+4. built-in default: EXPLICIT_SELECTION.
+```
+
+A less restrictive exposure override requires explicit user confirmation. Every resolved policy and strategy is copied into the request, context, or execution snapshot so historical behavior remains reproducible.
+
+## 7.4 WorkspaceContextStrategy
+
+Controls how source files are selected and injected into an AI request in Workspace Mode.
+
+```text
+WorkspaceContextStrategy
+- mode
+- include_patterns
+- exclude_patterns
+- max_files
+- max_bytes
+- max_tokens
+- symbol_depth
+- snippet_radius
+- include_git_diff
+- include_untracked_files
+- require_confirmation
+```
+
+Supported modes:
+
+```text
+EXPLICIT_SELECTION
+    Include only files or symbols explicitly selected by the user.
+
+GIT_DIFF_ONLY
+    Include the current base-to-worktree diff and directly referenced files.
+
+CHANGED_FILES
+    Include files changed in selected current or prior iterations.
+
+SYMBOL_SUMMARY
+    Include repository structure and symbol summaries, with full text only for
+    selected symbols or files.
+
+SNIPPET_WINDOWS
+    Include bounded line ranges around search hits, diagnostics, or symbols.
+
+REPOSITORY_MAP
+    Include a compact tree and file summaries, then retrieve details on demand.
+
+ADAPTER_NATIVE
+    Allow an approved coding agent to discover context within its explicit
+    workspace permissions.
+
+HYBRID
+    Combine a repository map, Git diff, selected files, and bounded snippets.
+```
+
+Rules:
+
+- full-repository injection is never the default;
+- ignored, secret, generated, and out-of-workspace paths are excluded;
+- every included file, symbol, snippet, diff, and summary is recorded;
+- source content shares the same token budget as conversation history and tools;
+- source files are never silently truncated;
+- generated source summaries are stored as `IntermediateResult` objects;
+- `ADAPTER_NATIVE` requires explicit workspace capabilities and approved filesystem scope.
+
+## 7.5 AccessMethod
 
 ```text
 AccessMethod
@@ -383,7 +503,7 @@ AccessMethod
 - supported_features
 ```
 
-## 7.5 CredentialReference
+## 7.6 CredentialReference
 
 ```text
 CredentialReference
@@ -398,7 +518,7 @@ CredentialReference
 
 The plaintext secret must never be written to YAML, JSON, Markdown, JSONL, or Git.
 
-## 7.6 ExposureTransitionPolicy
+## 7.7 ExposureTransitionPolicy
 
 Controls how differences between declared and resolved execution location or network are handled.
 
@@ -444,7 +564,7 @@ confirmation_required_transitions:
 
 Absence of a matching rule must not be interpreted as permission.
 
-## 7.7 LoggingPolicy
+## 7.8 LoggingPolicy
 
 ```text
 LoggingPolicy
@@ -479,6 +599,9 @@ AISession
 - updated_at
 - default_configuration_id
 - workspace_id
+- active_result_id
+- origin_session_id
+- origin_result_id
 - status
 - metadata
 ```
@@ -491,6 +614,17 @@ WORKSPACE
 ```
 
 `COMPARISON` is intentionally excluded from the MVP domain model. A later comparison feature may model one comparison session as several sibling interactions, each using a different `AIConfiguration`, linked by a `comparison_group_id`.
+
+The session mode is immutable after creation. A session does not change in place from `COMMUNICATION` to `WORKSPACE`.
+
+When a user decides to apply a communication result to files, the application creates a new `WORKSPACE` session linked through:
+
+```text
+origin_session_id
+origin_result_id
+```
+
+The original communication session remains unchanged and auditable. The UI may present the new workspace session as a continuation, but persistence treats it as a separate session with separate rules.
 
 ## 8.2 Interaction
 
@@ -627,6 +761,104 @@ AIResponse
 
 An execution may create multiple `AIResponse` or `IntermediateResult` objects before completion.
 
+## 9.5 ContextAssemblyRecord
+
+Before a provider request is created, the application must record exactly how the stored session tree was converted into the linear context sent to the selected AI.
+
+```text
+ContextAssemblyRecord
+- id
+- session_id
+- interaction_id
+- active_result_id
+- lineage_result_ids
+- included_message_ids
+- included_attachment_ids
+- excluded_result_ids
+- excluded_message_ids
+- transformations
+- workspace_context_strategy
+- included_workspace_files
+- included_workspace_symbols
+- included_workspace_snippets
+- included_git_diffs
+- excluded_workspace_paths
+- token_estimate
+- token_limit
+- overflow_policy
+- created_at
+- metadata
+```
+
+### Branch-to-context rule
+
+For a request branching from an intermediate result:
+
+1. Start at `active_result_id`.
+2. Follow `parent_result_id` links to the root.
+3. Reverse that path to obtain root-to-leaf order.
+4. Include only interactions, messages, tool results, and attachments referenced by that active lineage.
+5. Exclude sibling branches unless the user explicitly imports them.
+6. Convert the selected lineage into provider-compatible linear messages.
+7. Persist the exact selection and transformations in `ContextAssemblyRecord`.
+
+This makes the context deterministic and reproducible.
+
+### Context overflow policy
+
+Context must be estimated before transmission using a provider-specific token estimator when available and a conservative fallback otherwise.
+
+Supported policies:
+
+```text
+FAIL
+    Reject the request and show the estimated overflow.
+
+TRIM_OLDEST
+    Remove the oldest eligible context items while preserving system rules,
+    the active user request, and explicitly pinned results.
+
+SUMMARIZE_WITH_CONFIRMATION
+    Create a stored summary of older context, show what will be replaced,
+    and require approval before using the summary.
+
+SELECT_MANUALLY
+    Ask the user to select messages, results, or files to include.
+```
+
+The default policy is `FAIL`. Trimming or summarization must never occur silently.
+
+A generated summary is itself an `IntermediateResult` and must record:
+
+```text
+source_result_ids
+source_message_ids
+source_file_references
+summary_configuration_id
+summary_execution_id
+```
+
+### Workspace context assembly
+
+In Workspace Mode, `ContextAssemblyService` resolves both the active conversation lineage and source context selected by the resolved `WorkspaceContextStrategy`.
+
+The exact repository map, files, symbols, snippets, Git diffs, summaries, and exclusions used for the request are stored in `ContextAssemblyRecord`.
+
+The shared context budget includes:
+
+```text
+system and developer instructions
++ active conversation lineage
++ tool results
++ repository maps or summaries
++ source files and snippets
++ Git diffs
++ current user request
++ reserved output budget
+```
+
+The current request, mandatory system rules, and explicitly pinned source items are protected from automatic removal. Source files must not be silently truncated. Any summarization follows the configured overflow policy and creates a traceable `IntermediateResult`.
+
 ---
 
 ## 10. Execution Model
@@ -644,11 +876,16 @@ Execution
 - configuration_id
 - configuration_snapshot
 - adapter_type
+- observability_level
 - state
+- waiting_reason
 - platform
 - host_identifier
+- resolved_endpoint
 - resolved_location
 - resolved_network
+- network_resolution_confidence
+- network_resolution_evidence_reference
 - started_at
 - finished_at
 - usage
@@ -673,6 +910,26 @@ cancelled
 failed
 ```
 
+`WORKSPACE_DIVERGED` is not a top-level execution state. It is represented as:
+
+```text
+state: waiting_for_user
+waiting_reason: WORKSPACE_DIVERGED
+```
+
+Other standardized waiting reasons include:
+
+```text
+AUTHENTICATION_REQUIRED
+CAPTCHA_REQUIRED
+EXPOSURE_CONFIRMATION_REQUIRED
+CONTEXT_SELECTION_REQUIRED
+COMMAND_APPROVAL_REQUIRED
+STALE_LEASE_TAKEOVER_REQUIRED
+```
+
+This keeps lifecycle state separate from the reason user action is required.
+
 ## 10.1 ExecutionStep
 
 ```text
@@ -687,6 +944,8 @@ ExecutionStep
 - input_reference
 - output_reference
 - intermediate_result_id
+- observation_source
+- observation_confidence
 - metadata
 ```
 
@@ -703,7 +962,25 @@ browser_action
 review
 test_execution
 git_checkpoint
+external_agent_run
+workspace_divergence
 ```
+
+An `ExecutionStep` must only claim detail that the adapter actually observed. It must not fabricate tool calls or internal reasoning for an opaque CLI or browser execution.
+
+Possible `observation_source` values:
+
+```text
+PROVIDER_EVENT
+STRUCTURED_CLI_OUTPUT
+TEXT_STREAM
+FILESYSTEM_DIFF
+PROCESS_METADATA
+BROWSER_DOM
+INFERRED
+```
+
+Inferred steps must be marked explicitly and carry lower confidence.
 
 ## 10.2 StreamEvent
 
@@ -764,6 +1041,8 @@ Every adapter implements:
 validate_configuration(configuration)
 test_connection(configuration)
 get_capabilities(configuration)
+get_observability_profile(configuration)
+resolve_connectivity(configuration)
 list_models(configuration)
 execute(request)
 stream(request)
@@ -788,6 +1067,33 @@ health_check()
 `ExecutionManager.validate_request()` checks whether the concrete request fits the selected configuration.
 
 Before execution, the adapter must resolve the actual endpoint, location, and network path as far as reasonably determinable and return these values to `ExecutionManager`. The adapter must not suppress or silently downgrade a mismatch. Exposure-policy evaluation belongs to `ExecutionManager`.
+
+## 12.1 Adapter Observability
+
+Adapters do not all expose the same internal detail. Each adapter must declare an `AdapterObservabilityProfile`.
+
+```text
+GRANULAR
+    Structured provider events expose model generations, tools, and results.
+
+STRUCTURED_STREAM
+    Structured stream events are available, but internal provider loops may
+    remain partly opaque.
+
+TEXT_STREAM
+    Only text or process output can be streamed reliably.
+
+BLOCK
+    The application can observe only start, completion, status, files, and
+    final output.
+
+OPAQUE
+    Only invocation and coarse completion/failure are observable.
+```
+
+`ExecutionManager` and the UI must respect this profile. Fine-grained `ExecutionStep` records are optional and must never be invented to satisfy a uniform schema.
+
+For `BLOCK` or `OPAQUE` executions, one coarse `external_agent_run` step is valid, supplemented by independently observable process metadata, filesystem diffs, generated files, and test results.
 
 ---
 
@@ -839,6 +1145,139 @@ OpenAICompatibleAdapter
 
 For remote endpoints, `location` and `network` are first-class `AIConfiguration` fields. The adapter remains selected by protocol, not by physical location.
 
+## 13.1 CLI Adapter Rules
+
+A CLI adapter must assume that an external AI agent may control its own hidden loop.
+
+The generic CLI adapter is required to capture only what is externally observable:
+
+```text
+redacted executable and argument list
+working directory
+allowed environment-variable names
+start and finish time
+stdout and stderr
+exit status
+cancellation result
+files changed before and after execution
+Git diff
+generated files
+tests run by the application
+```
+
+If the CLI offers a documented structured event format, a specialized adapter may emit granular steps. Otherwise, the execution is modeled as one `external_agent_run` block. The application must not claim to know the CLI's internal tool calls.
+
+### Process-tree isolation and cancellation
+
+Every CLI execution must run inside an operating-system process container that permits full descendant-tree termination.
+
+```text
+macOS/Linux
+    Start the CLI in a new process group or session.
+    Graceful cancellation sends SIGTERM to the process group.
+    Forced cancellation sends SIGKILL to the process group after timeout.
+
+Windows
+    Assign the process to a Windows Job Object.
+    Configure JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.
+    Closing or terminating the Job Object stops the full descendant tree.
+```
+
+Cancellation sequence:
+
+```text
+1. mark cancellation_requested;
+2. stop accepting new approvals;
+3. terminate the complete process tree gracefully;
+4. wait for the configured grace period;
+5. force termination of remaining descendants;
+6. verify that no tracked descendant remains;
+7. rescan workspace status and file hashes;
+8. record incomplete or out-of-band changes.
+```
+
+Killing only the parent process is not a valid implementation of `cancel()`. Process isolation does not imply visibility into the external agent's internal loop.
+
+## 13.2 Browser Adapter Recovery
+
+Browser adapters are expected to be fragile and must use versioned provider-specific selector packs.
+
+A browser adapter should:
+
+- prefer semantic roles, labels, and stable attributes over positional selectors;
+- record the selector-pack and adapter version;
+- capture a screenshot and sanitized DOM snapshot on failure;
+- allow a bounded retry, reload, or new-page attempt;
+- pause in `waiting_for_user` for login, 2FA, CAPTCHA, consent dialogs, or ambiguous UI;
+- detect rate-limit and provider-error pages;
+- abort rather than click an unrecognized control;
+- never silently fall back to an API, CLI, or different provider.
+
+A provider UI change that invalidates selectors creates a failed or paused execution. Recovery requires a selector-pack update or explicit user intervention.
+
+### Browser profile path isolation
+
+Browser profiles must live only under the platform-managed directory controlled by `BrowserProfileService`.
+
+They must never reside:
+
+- inside a communication session directory;
+- inside `.ai-journal/`;
+- inside a source workspace;
+- inside a Git worktree or repository;
+- inside an export directory.
+
+`BrowserProfileService` resolves canonical paths and rejects any overlap with journals, workspaces, exports, or repositories. Generated `.gitignore` rules are only defense in depth and are not a sufficient primary control.
+
+Cookies, OAuth data, local storage, caches, and browser databases must never be copied into session journals or Git exports.
+
+## 13.3 Connectivity Resolution and Uncertainty
+
+Network-path discovery is inherently imperfect.
+
+`resolve_connectivity()` returns:
+
+```text
+ConnectivityResolution
+- endpoint
+- location
+- network
+- confidence
+- evidence
+```
+
+Confidence values:
+
+```text
+VERIFIED
+    Supported by strong platform evidence.
+
+INFERRED
+    Derived from DNS, address ranges, interfaces, routes, proxies, or VPN state.
+
+DECLARED
+    Taken from explicit trusted configuration because automatic resolution
+    was unavailable.
+
+UNKNOWN
+    The adapter and platform services could not classify the path safely.
+```
+
+`NetworkInspector` may inspect:
+
+- URL scheme and final host;
+- DNS resolution;
+- loopback, private, public, and overlay IP ranges;
+- active interfaces;
+- routing table;
+- proxy settings;
+- known VPN or Tailscale interfaces;
+- redirects before protected request bodies are transmitted.
+
+The application must not treat `UNKNOWN` as private or safe. The default exposure policy for `UNKNOWN` is `FAIL` or `REQUIRE_CONFIRMATION`.
+
+Explicit endpoint tagging is permitted, but the record must state that confidence is `DECLARED`, not `VERIFIED`. Exposure-changing redirects must not be followed automatically with protected content.
+
 ---
 
 ## 14. Core Services
@@ -881,6 +1320,7 @@ get_session()
 list_sessions()
 append_interaction()
 branch_from_result()
+create_workspace_from_result()
 select_final_result()
 export_session()
 ```
@@ -986,6 +1426,7 @@ open_workspace()
 prepare_ai_workspace()
 start_iteration()
 capture_workspace_state()
+recover_stale_workspace_lease()
 create_iteration_checkpoint()
 restore_iteration()
 list_iterations()
@@ -1018,6 +1459,9 @@ initialize_repository()
 create_branch()
 create_worktree()
 remove_worktree()
+inspect_submodules()
+inspect_lfs()
+check_path_length_support()
 get_current_commit()
 get_status()
 get_diff()
@@ -1029,6 +1473,49 @@ list_commits()
 ```
 
 Git operations must use argument arrays, not shell-concatenated command strings.
+
+## 14.12 ContextAssemblyService
+
+```text
+resolve_active_lineage()
+resolve_workspace_context()
+build_repository_map()
+select_file_snippets()
+assemble_messages()
+estimate_tokens()
+apply_overflow_policy()
+create_context_record()
+```
+
+It is the only service responsible for converting a result tree into the linear payload passed to an adapter.
+
+## 14.13 ConnectivityService
+
+```text
+resolve_connectivity()
+collect_network_evidence()
+compare_declared_and_resolved()
+evaluate_exposure_transition()
+```
+
+It coordinates adapter observations with `NetworkInspector` and returns uncertainty explicitly.
+
+## 14.14 PersistenceCoordinator
+
+All runtime file mutations must pass through a single-writer persistence coordinator.
+
+```text
+enqueue_write()
+append_event_batch()
+write_atomic_snapshot()
+flush_execution()
+rebuild_derived_document()
+acquire_data_root_lease()
+recover_stale_data_root_lease()
+release_data_root_lease()
+```
+
+Adapters and UI components publish events; they do not write journal files directly.
 
 ---
 
@@ -1329,6 +1816,158 @@ AI communication → Git commit
 Git commit        → AI communication
 ```
 
+## 18.6 Dirty Working Tree Policy
+
+Workspace preparation must inspect tracked, untracked, staged, and ignored state before an AI iteration begins.
+
+Supported policies:
+
+```text
+REQUIRE_CLEAN
+    Refuse to start until the user resolves local changes.
+
+ISOLATE_FROM_HEAD
+    Create a dedicated worktree from the current committed HEAD. Existing
+    uncommitted edits remain untouched and are not included.
+
+IMPORT_USER_SNAPSHOT
+    With explicit approval, capture selected user changes into a patch,
+    apply them to the AI worktree, and create a clearly marked user-baseline
+    checkpoint before any AI commit.
+
+STASH_WITH_CONFIRMATION
+    Stash selected changes only after explicit confirmation and record the
+    stash reference for recovery.
+```
+
+The default is `ISOLATE_FROM_HEAD` when a worktree can be created; otherwise `REQUIRE_CLEAN`.
+
+Unrelated user edits must never be silently included in an AI checkpoint.
+
+## 18.7 Worktree Compatibility and Fallback
+
+Before creating an AI worktree, `GitService` inspects:
+
+- repository dirty state;
+- registered worktrees;
+- submodule state;
+- Git LFS usage and object availability;
+- filesystem permissions;
+- destination path length;
+- Windows long-path support.
+
+Fallback order:
+
+```text
+DEDICATED_WORKTREE
+        ↓ unavailable or unsafe
+ISOLATED_TEMPORARY_CLONE_OR_CHECKOUT
+        ↓ unavailable
+REQUIRE_CLEAN_WORKING_TREE
+        ↓ not satisfied
+REFUSE_WORKSPACE_SESSION
+```
+
+An isolated temporary clone or checkout must use a separate path and must never apply AI changes directly inside a dirty user working tree.
+
+### Submodules
+
+- record required submodule commit hashes;
+- initialize submodules explicitly according to policy;
+- do not share mutable submodule worktrees across AI sessions;
+- pause when a required submodule cannot be materialized.
+
+### Git LFS
+
+- detect LFS pointer files;
+- verify required objects before presenting content to the AI;
+- do not silently substitute pointer text for expected content;
+- permit metadata-only handling only when explicitly configured.
+
+### Windows paths
+
+- use a short platform-managed checkout root;
+- use compact session identifiers;
+- detect long-path support before checkout;
+- select a shorter isolated path or fail before editing begins.
+
+The selected isolation tier and every fallback decision are stored in workspace metadata.
+
+## 18.8 Concurrent Modification and Workspace Leases
+
+Each AI worktree has at most one active writer.
+
+`WorkspaceService` must acquire a workspace lease containing:
+
+```text
+lease_id
+session_id
+process_id
+host_identifier
+started_at
+heartbeat_at
+lease_timeout_seconds
+```
+
+Git operations are serialized per repository through `GitService`.
+
+Before applying a patch and before committing, the application compares file hashes and Git status with the expected workspace state. Unexpected changes produce:
+
+```text
+WORKSPACE_DIVERGED
+```
+
+The iteration pauses and requires the user to:
+
+```text
+accept_external_changes
+discard_external_changes
+restart_from_checkpoint
+create_new_iteration
+```
+
+The application must not guess whether simultaneous editor changes belong to the user or the AI.
+
+### Stale workspace lease recovery
+
+1. Read the lease atomically.
+2. If `host_identifier` matches the local host, check whether `process_id` exists.
+3. A live process with a fresh heartbeat keeps the lease active.
+4. A missing process marks the lease stale.
+5. An expired heartbeat marks it suspect because PID reuse is possible.
+6. Inspect Git locks, child processes, and workspace state.
+7. Automatically recover only a verified dead local process when policy permits.
+8. Otherwise require explicit takeover confirmation.
+9. Replace the lease atomically and record `stale_lease_recovered`.
+10. Never automatically break a lease owned by another host.
+
+## 18.9 Checkpoint and History Compaction Policy
+
+A meaningful iteration is a user-visible plan/edit/test/review cycle, not every individual file write or failed internal attempt.
+
+Supported checkpoint policies:
+
+```text
+PER_SUCCESSFUL_ITERATION
+PER_APPROVED_ITERATION
+MANUAL
+DEBUG_ALL
+```
+
+Failed attempts and tiny corrections remain in the journal even when they do not create commits.
+
+At workspace-session finalization, the user chooses:
+
+```text
+KEEP_DETAILED_HISTORY
+SQUASH_TO_ONE_COMMIT
+SQUASH_BY_APPROVED_ITERATION
+EXPORT_PATCH_SERIES
+DISCARD_BRANCH
+```
+
+History rewriting or squashing requires explicit confirmation. Journal records are never squashed and continue to preserve the complete AI process.
+
 ---
 
 ## 19. Storing Intermediate File Results
@@ -1418,6 +2057,43 @@ Rules:
 
 The source files are authoritative. Any indexes are disposable caches.
 
+## 21.1 Single-Writer Persistence and Windows Compatibility
+
+The MVP uses one `PersistenceCoordinator` as the sole writer for one application-data root.
+
+Rules:
+
+- adapters, workers, and UI components enqueue persistence operations;
+- JSONL events are appended in small batches and the file handle is closed after each flush;
+- `conversation.md` and other derived documents are rebuilt through temporary-file plus atomic-replace, not continuously appended by several components;
+- the UI receives live events through an in-memory event bus and reads disk snapshots only after the writer publishes completion;
+- a data-root lease prevents a second application process from writing to the same journal concurrently;
+- readers must tolerate a final partial JSONL line after a crash and ignore it during recovery;
+- Windows-specific open/share behavior is implemented inside the storage backend;
+- `EBUSY`, `EACCES`, and transient antivirus/indexer locks use bounded retry with backoff;
+- no component holds long-lived read handles on files that the writer must replace.
+
+Multi-process concurrent writers are excluded from the MVP.
+
+### Stale data-root lease recovery
+
+The data-root lease stores:
+
+```text
+lease_id
+process_id
+host_identifier
+started_at
+heartbeat_at
+lease_timeout_seconds
+```
+
+On startup, a matching local host permits an OS process-existence check. A missing process marks the lease stale; an expired heartbeat marks it suspect. Before takeover, the application inspects temporary files and JSONL tails.
+
+Automatic recovery is allowed only for a verified dead local process when policy permits; otherwise explicit confirmation is required. A takeover is written atomically and records `stale_lease_recovered`. A lease owned by another host is never broken automatically.
+
+After a crash, recovery may ignore one incomplete final JSONL line and repair unfinished temporary-file writes.
+
 ---
 
 ## 22. Self-Improvement Workflow
@@ -1462,7 +2138,14 @@ The application must:
 - redact secrets before writing logs;
 - allow communication logging to be reduced or disabled for sensitive work;
 - require explicit policy before automatic Git commits;
-- prevent AI agents from rewriting Git history unless explicitly allowed.
+- prevent AI agents from rewriting Git history unless explicitly allowed;
+- treat unknown network resolution as unsafe by default;
+- never fabricate granular activity for opaque CLI or browser adapters;
+- pause on workspace divergence instead of combining concurrent edits;
+- terminate the complete CLI process tree on cancellation;
+- keep browser profiles outside journals, workspaces, exports, and Git repositories;
+- recover stale leases only through verified or explicitly approved takeover;
+- refuse workspace execution when no safe Git isolation tier is available.
 
 ---
 
@@ -1495,7 +2178,26 @@ For file-changing work, project files live in their Git repository and the linke
 
 ---
 
+
 ## 25. MVP Scope
+
+The MVP is implementation-ready when the Safety Kernel is present. The following components may initially use conservative fallbacks:
+
+```text
+NetworkInspector
+    May return DECLARED or UNKNOWN when route inspection is unavailable.
+
+Workspace symbol extraction
+    May begin with file maps, Git diffs, explicit selection, and text snippets.
+
+Token estimation
+    May use conservative estimators until provider-specific tokenizers exist.
+
+Browser diagnostics
+    May require manual selector-pack updates.
+```
+
+Uncertain states must fail, pause, or require explicit confirmation.
 
 ### Include
 
@@ -1507,6 +2209,18 @@ JSON request and response snapshots
 JSONL event streams
 IntermediateResult model
 Every meaningful intermediate result stored separately
+Deterministic branch-to-context assembly
+WorkspaceContextStrategy for repository maps, diffs, symbols, snippets, and explicit file selection
+Explicit context-overflow policies
+Adapter observability profiles
+Connectivity resolution with confidence and evidence
+Single-writer persistence coordinator
+Windows-safe event and snapshot writing
+Stale lease recovery for data roots and workspaces
+Cross-platform process-tree isolation and full subtree termination
+Git worktree compatibility inspection and fallback tiers
+Strict browser-profile path isolation
+Immutable session modes with communication-to-workspace forking
 Optional Git versioning for communication sessions
 Mandatory Git workflow for file-changing sessions
 Dedicated AI branch or worktree
@@ -1533,6 +2247,11 @@ Multi-user permissions
 Autonomous uncontrolled agents
 Automatic merge to main
 Automatic history rewriting
+Deep introspection of opaque external CLI agent loops
+Automatic browser-selector self-repair
+Perfect automatic VPN/Tailscale route classification on every platform
+Language-specific AST indexing for every programming language
+Multi-process writers for one application-data root
 Universal CLI attachment handling
 ```
 
@@ -1543,18 +2262,22 @@ Universal CLI attachment handling
 ```text
 1. User opens or creates a communication session.
 2. User selects an AI configuration.
-3. User sends input.
-4. Request snapshot is stored.
-5. The adapter resolves the actual endpoint, location, and network path.
-6. ExposureTransitionPolicy is evaluated before protected content is sent.
-7. Execution starts only if the transition is allowed or explicitly confirmed.
-8. Stream events are appended.
-9. Meaningful intermediate results are assembled and stored separately.
-10. User may ask for revision, branch from a result, or switch AI.
-11. Every new result is linked to its parent.
-12. User selects the preferred final result.
-13. The session journal is rebuilt.
-14. The session may optionally receive a Git checkpoint.
+3. User chooses the active result or branch and sends input.
+4. ContextAssemblyService resolves the root-to-active-result lineage.
+5. In Workspace Mode, it also applies the resolved WorkspaceContextStrategy.
+6. Token budget is estimated across messages, source context, diffs, tools, and reserved output.
+7. The configured overflow policy is applied without silent truncation.
+8. ContextAssemblyRecord and request snapshot are stored.
+9. The adapter and NetworkInspector resolve endpoint, location, network, confidence, and evidence.
+10. ExposureTransitionPolicy is evaluated before protected content is sent.
+11. Execution starts only if the transition is allowed or explicitly confirmed.
+12. Observable stream events are published to the in-memory event bus.
+13. PersistenceCoordinator appends events and stores meaningful intermediate results.
+14. User may ask for revision, branch from a result, or switch AI.
+15. Every new result is linked to its parent.
+16. User selects the preferred final result.
+17. The session journal is rebuilt atomically.
+18. The session may optionally receive a Git checkpoint.
 ```
 
 ---
@@ -1563,20 +2286,24 @@ Universal CLI attachment handling
 
 ```text
 1. User opens a Git workspace.
-2. Application creates or selects a dedicated AI branch/worktree.
-3. User selects an AI configuration.
-4. Instruction and source context are stored locally.
-5. The adapter resolves the actual endpoint, location, and network path.
-6. ExposureTransitionPolicy is evaluated before source context is transmitted.
-7. AI produces a plan only after the transition is allowed or explicitly confirmed.
-8. Plan is stored as an intermediate result.
-9. AI changes files.
-10. Commands, patches, and file operations are recorded.
-11. Tests and checks run.
-12. Diff and review output are stored.
-13. A Git checkpoint commit is created.
-14. The next AI iteration starts from that commit.
-15. User can restore, compare, squash, merge, or reject iterations.
+2. WorkspaceService inspects dirty state, submodules, LFS, path support, and available isolation tiers.
+3. Application creates the safest available isolated checkout and acquires a recoverable workspace lease.
+4. User selects an AI configuration.
+5. ContextAssemblyService applies the resolved WorkspaceContextStrategy to select repository maps, diffs, files, symbols, snippets, and prior results within the token budget.
+6. Instruction, context manifest, and hashes are stored locally.
+7. Connectivity is resolved with confidence and ExposureTransitionPolicy is evaluated.
+8. AI produces a plan only after the transition is allowed or explicitly confirmed.
+9. Plan is stored as an intermediate result.
+10. AI or the external CLI agent changes files according to its observability profile.
+11. CLI agents run inside a POSIX process group/session or Windows Job Object.
+12. Commands, process output, patches, and independently observed file changes are recorded.
+13. Workspace hashes and Git state are checked for unexpected concurrent edits.
+14. Tests and checks run.
+15. Diff and review output are stored.
+16. A checkpoint is created according to checkpoint policy.
+17. The next AI iteration starts from that checkpoint.
+18. User can restore, compare, compact, merge, export, or reject iterations.
+19. Workspace lease is released when the session pauses or completes.
 ```
 
 ---
@@ -1645,13 +2372,25 @@ The project is successful when:
 - arbitrary AI configurations can coexist;
 - each execution records where the AI ran and how its endpoint was reached;
 - exposure-increasing connectivity mismatches are blocked or explicitly approved before transmission;
+- uncertain connectivity is represented explicitly and never silently treated as private;
 - normal communication preserves every meaningful intermediate result;
+- branched result trees are converted into deterministic, recorded provider context;
+- workspace source context is selected through an explicit, recorded strategy;
+- context overflow never causes silent trimming, source truncation, or summarization;
 - no AI result is silently overwritten;
 - revisions form an inspectable history or tree;
 - communication sessions can optionally be Git-versioned;
 - all AI-driven file changes occur in Git repositories;
 - every meaningful file iteration has a checkpoint commit;
 - each commit links to the exact AI communication that produced it;
+- dirty user work is isolated from AI checkpoint commits;
+- concurrent workspace edits are detected and paused rather than merged implicitly;
+- opaque adapters record only observable facts;
+- CLI cancellation terminates the complete descendant process tree;
+- stale data-root and workspace leases can be recovered safely after crashes;
+- worktree failures caused by submodules, LFS, or path constraints follow explicit isolation fallbacks;
+- browser profiles cannot overlap journals, workspaces, exports, or Git repositories;
+- Windows file locking does not require multiple components to write the same journal directly;
 - every AI-assisted change can be inspected, tested, restored, or rejected;
 - secrets never enter ordinary logs or repositories;
 - the application can safely use AI to improve itself;
@@ -1672,5 +2411,16 @@ Workspace history
 ```
 
 Both histories must be linked.
+
+All authoritative rules are integrated into their owning sections; no later clarification block overrides them.
+
+The design also preserves uncertainty:
+
+```text
+unknown provider internals remain opaque
+uncertain network paths remain explicitly uncertain
+branched context records exactly what was selected
+concurrent file changes pause instead of being guessed
+```
 
 > Normal AI work preserves every meaningful result. File-changing AI work additionally preserves every iteration as Git history.
