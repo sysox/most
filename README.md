@@ -13,14 +13,14 @@ uv run ruff check most tests
 Basic commands:
 
 ```bash
-python -m most --data-root ./application-data create-session "Research"
-python -m most --data-root ./application-data create-configuration "Local Ollama" --provider local/Ollama
-python -m most --data-root ./application-data list-sessions
-python -m most --data-root ./application-data list-configurations
-python -m most --data-root ./application-data inspect-execution <execution-id>
-python -m most --data-root ./application-data inspect-workspace <repository> --diff
-python -m most --data-root ./application-data inspect-workspace <repository> --compatibility
-python -m most --data-root ./application-data chat --model granite4.1:3b
+uv run python -m most --data-root ./application-data create-session "Research"
+uv run python -m most --data-root ./application-data create-configuration "Local Ollama" --provider local/Ollama
+uv run python -m most --data-root ./application-data list-sessions
+uv run python -m most --data-root ./application-data list-configurations
+uv run python -m most --data-root ./application-data inspect-execution <execution-id>
+uv run python -m most --data-root ./application-data inspect-workspace <repository> --diff
+uv run python -m most --data-root ./application-data inspect-workspace <repository> --compatibility
+uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 ```
 
 The `chat` command uses the local OpenAI-compatible endpoint at
@@ -29,24 +29,24 @@ key. Pass one prompt for a single turn or omit the prompt for an interactive
 session:
 
 ```bash
-python -m most --data-root ./application-data chat --model granite4.1:3b "Hello"
-python -m most --data-root ./application-data chat --model ministral-3:8b
+uv run python -m most --data-root ./application-data chat --model granite4.1:3b "Hello"
+uv run python -m most --data-root ./application-data chat --model ministral-3:8b
 ```
 
 Browser communication is optional and uses Firefox with an isolated profile:
 
 ```bash
 uv sync --extra browser
-python -m most --data-root ./application-data browser-chat gemini
-python -m most --data-root ./application-data browser-chat chatgpt
-python -m most --data-root ./application-data browser-chat claude
+uv run python -m most --data-root ./application-data browser-chat gemini
+uv run python -m most --data-root ./application-data browser-chat chatgpt
+uv run python -m most --data-root ./application-data browser-chat claude
 ```
 
 If a provider blocks WebDriver sign-in, use manual browser relay mode. MOST
 opens the normal browser, and you copy the prompt and response yourself:
 
 ```bash
-python -m most --data-root ./application-data browser-chat gemini --manual
+uv run python -m most --data-root ./application-data browser-chat gemini --manual
 ```
 
 This mode does not inspect cookies, automate login, bypass CAPTCHA, or evade
@@ -58,10 +58,9 @@ terminal. MOST runs them in an application-managed sandbox and records their
 observable command/output history:
 
 ```bash
-python -m most --data-root ./application-data cli-chat codex --allow-unknown-connectivity
-python -m most --data-root ./application-data cli-chat claude --allow-unknown-connectivity
-python -m most --data-root ./application-data cli-chat gemini --allow-unknown-connectivity
-python -m most --data-root ./application-data cli-chat agy --allow-unknown-connectivity
+uv run python -m most --data-root ./application-data cli-chat codex --allow-unknown-connectivity
+uv run python -m most --data-root ./application-data cli-chat claude --allow-unknown-connectivity
+uv run python -m most --data-root ./application-data cli-chat agy --allow-unknown-connectivity
 ```
 
 Codex runs with an ephemeral, read-only, non-repository execution. The
@@ -70,7 +69,11 @@ or stores the provider login token.
 
 `agy` is the Antigravity CLI replacement for the retired Gemini individual
 sign-in flow. It runs with its own sandbox flag and uses the Google account
-authentication established by Antigravity.
+authentication established by Antigravity. Authenticate with `agy` once before
+using it through MOST. If headless mode reports that a command permission is
+required, open `/permissions` in an interactive `agy --sandbox` session and
+add only the specific read-only command requested by Antigravity. Do not use
+`--dangerously-skip-permissions` as a general solution.
 
 For Snap-packaged Firefox on Linux, use a visible profile root if Firefox
 cannot access the default hidden application-data path:
