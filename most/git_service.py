@@ -8,6 +8,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+INSPECTION_TIMEOUT_SECONDS = 5
+
 
 @dataclass(frozen=True, slots=True)
 class GitResult:
@@ -75,13 +77,25 @@ class GitService:
         return GitResult(("git", "clone", "--no-hardlinks"), completed.returncode, completed.stdout, completed.stderr)
 
     def inspect_submodules(self) -> dict[str, object]:
-        result = subprocess.run(["git", "submodule", "status", "--recursive"], cwd=self.repository, text=True, capture_output=True, check=False)
+        try:
+            result = subprocess.run(
+                ["git", "submodule", "status", "--recursive"], cwd=self.repository,
+                text=True, capture_output=True, check=False, timeout=INSPECTION_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return {"available": False, "status": "", "error": "git submodule inspection timed out"}
         return {"available": result.returncode == 0, "status": result.stdout, "error": result.stderr if result.returncode else None}
 
     def inspect_lfs(self) -> dict[str, object]:
         if shutil.which("git-lfs") is None:
             return {"available": False, "required": False, "reason": "git-lfs executable unavailable"}
-        result = subprocess.run(["git", "lfs", "ls-files"], cwd=self.repository, text=True, capture_output=True, check=False)
+        try:
+            result = subprocess.run(
+                ["git", "lfs", "ls-files"], cwd=self.repository,
+                text=True, capture_output=True, check=False, timeout=INSPECTION_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return {"available": False, "required": False, "files": [], "reason": "git-lfs inspection timed out"}
         return {"available": result.returncode == 0, "required": bool(result.stdout.strip()), "files": result.stdout.splitlines()}
 
     def check_path_length_support(self, candidate: Path, max_length: int = 240) -> dict[str, object]:
