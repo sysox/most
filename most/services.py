@@ -102,6 +102,16 @@ class SessionService:
         self.journal.initialize(session.id, record_payload(session, record_type="AI_SESSION"))
         return session
 
+    def list(self) -> list[dict[str, object]]:
+        import yaml
+        directory = self.store.root / "sessions"
+        records = []
+        for path in sorted(directory.glob("*/session.yaml")):
+            value = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            if isinstance(value, dict):
+                records.append(value)
+        return records
+
     def add_result(self, result: IntermediateResult, content: str) -> IntermediateResult:
         if result.id in self.results:
             raise ValueError(f"result already exists: {result.id}")
