@@ -41,3 +41,27 @@ class GitService:
 
     def current_commit(self) -> str:
         return self.run("rev-parse", "HEAD").stdout.strip()
+
+    def create_branch(self, branch: str, start_point: str = "HEAD") -> GitResult:
+        self._validate_ref(branch)
+        return self.run("switch", "--create", branch, start_point)
+
+    def create_worktree(self, destination: Path, branch: str, start_point: str = "HEAD") -> GitResult:
+        self._validate_ref(branch)
+        destination = destination.resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        return self.run("worktree", "add", "-b", branch, str(destination), start_point)
+
+    def checkpoint(self, paths: list[str], *, message: str, trailers: dict[str, str]) -> str:
+        if not paths:
+            raise ValueError("checkpoint requires at least one path")
+        self.run("add", "--", *paths)
+        trailer_args = [f"{key}: {value}" for key, value in trailers.items()]
+        full_message = message + ("\n\n" + "\n".join(trailer_args) if trailer_args else "")
+        self.run("commit", "-m", full_message)
+        return self.current_commit()
+
+    @staticmethod
+    def _validate_ref(value: str) -> None:
+        if not value or value.startswith("-") or ".." in value or "@{" in value:
+            raise ValueError("unsafe Git ref")

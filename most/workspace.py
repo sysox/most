@@ -6,6 +6,7 @@ import os
 import socket
 from dataclasses import asdict
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from .git_service import GitService
@@ -22,6 +23,22 @@ class WorkspaceLease:
     started_at: str
     heartbeat_at: str
     lease_timeout_seconds: int
+
+
+class DirtyTreePolicy(str, Enum):
+    REQUIRE_CLEAN = "REQUIRE_CLEAN"
+    ISOLATE_FROM_HEAD = "ISOLATE_FROM_HEAD"
+    IMPORT_USER_SNAPSHOT = "IMPORT_USER_SNAPSHOT"
+    STASH_WITH_CONFIRMATION = "STASH_WITH_CONFIRMATION"
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceIsolation:
+    tier: str
+    repository: Path
+    base_commit: str
+    branch: str | None
+    dirty_status: str
 
 
 class WorkspaceService:
@@ -61,6 +78,26 @@ class WorkspaceService:
             "status": self.git.status() if self.git.is_repository() else "",
             "current_commit": self.git.current_commit() if self.git.is_repository() else None,
         }
+
+    def prepare_ai_workspace(self, session_id: str, destination: Path | None = None,
+                             policy: DirtyTreePolicy = DirtyTreePolicy.ISOLATE_FROM_HEAD) -> WorkspaceIsolation:
+        if not self.git.is_repository():
+            raise ValueError("workspace must be an existing Git repository")
+        status = self.git.status()
+        base = self.git.current_commit()
+        if status and policy is DirtyTreePolicy.REQUIRE_CLEAN:
+            raise RuntimeError("working tree is not clean")
+        if status and policy is DirtyTreePolicy.STASH_WITH_CONFIRMATION:
+            raise RuntimeError("dirty-tree stashing requires explicit confirmation")
+        if status and policy is DirtyTreePolicy.IMPORT_USER_SNAPSHOT:
+            raise RuntimeError("user snapshot import requires explicit selection")
+        if destination is None:
+            destination = self.store.root / "temporary-workspaces" / session_id
+        branch = f"ai/{session_id}"
+        if policy is DirtyTreePolicy.ISOLATE_FROM_HEAD:
+            self.git.create_worktree(destination, branch, base)
+            return WorkspaceIsolation("DEDICATED_WORKTREE", destination, base, branch, status)
+        return WorkspaceIsolation("CURRENT_REPOSITORY", self.repository, base, None, status)
 
     def _read_lease(self, relative: str) -> WorkspaceLease | None:
         import yaml
