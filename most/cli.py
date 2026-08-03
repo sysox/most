@@ -28,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     workspace.add_argument("repository", type=Path)
     workspace.add_argument("--diff", action="store_true")
     workspace.add_argument("--compatibility", action="store_true")
+    workspace.add_argument("--history", action="store_true")
     return parser
 
 
@@ -54,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
         result = service.compatibility_report() if args.compatibility else service.inspect()
         if args.diff and result["is_repository"]:
             result["diff"] = service.git.diff()
+        if args.history:
+            result["history"] = service.history()
         print(json.dumps(result, indent=2, default=str))
         return 0
     if args.command == "inspect-execution":

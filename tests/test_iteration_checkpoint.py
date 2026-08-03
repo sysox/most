@@ -21,3 +21,5 @@ def test_iteration_checkpoint_links_commit_after_creation(tmp_path: Path):
     )
     assert iteration.status == "completed"
     assert iteration.resulting_commit == service.git.current_commit()
+    events = (tmp_path / "data" / "sessions" / "s" / "events.jsonl").read_text(encoding="utf-8")
+    assert iteration.resulting_commit in events

@@ -12,6 +12,14 @@ def test_git_ref_validation(tmp_path: Path):
         service.create_branch("--dangerous")
 
 
+def test_git_service_can_initialize_selected_directory(tmp_path: Path):
+    repository = tmp_path / "new-repository"
+    repository.mkdir()
+    service = GitService(repository)
+    service.initialize_repository()
+    assert service.is_repository()
+
+
 def test_git_checkpoint_and_isolated_worktree(tmp_path: Path):
     repository = tmp_path / "repo"
     repository.mkdir()

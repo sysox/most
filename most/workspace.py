@@ -55,6 +55,8 @@ class WorkspaceService:
         self.store = PersistenceCoordinator(data_root)
         self.repository = Path(repository)
         self.git = GitService(self.repository)
+        from .journal import JournalService
+        self.journal = JournalService(data_root)
 
     def acquire_lease(self, workspace_id: str, session_id: str, timeout_seconds: int = 300) -> WorkspaceLease:
         relative = f"workspaces/{workspace_id}.lease.yaml"
@@ -204,7 +206,23 @@ class WorkspaceService:
             f"workspaces/{iteration.session_id}/iterations/{iteration.sequence_number:04d}/iteration.yaml",
             record_payload(iteration, record_type="AI_ITERATION"),
         )
+        self.journal.record_event(
+            iteration.session_id,
+            {
+                "event_type": "checkpoint_linked",
+                "iteration_id": iteration.id,
+                "interaction_id": iteration.interaction_id,
+                "request_id": iteration.request_id,
+                "execution_id": iteration.execution_id,
+                "commit": commit,
+            },
+        )
         return iteration
+
+    def history(self, limit: int = 50) -> list[str]:
+        if not self.git.is_repository():
+            return []
+        return self.git.list_commits(limit)
 
     def list_iterations(self, session_id: str) -> list[dict[str, object]]:
         directory = self.store.root / "workspaces" / session_id / "iterations"

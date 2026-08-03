@@ -35,6 +35,12 @@ class GitService:
         result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=self.repository, text=True, capture_output=True, check=False)
         return result.returncode == 0 and result.stdout.strip() == "true"
 
+    def initialize_repository(self) -> GitResult:
+        """Initialize a repository only at this explicitly selected path."""
+        if self.is_repository():
+            return GitResult(("git", "init"), 0, "already a repository", "")
+        return self.run("init")
+
     def status(self) -> str:
         return self.run("status", "--porcelain=v1").stdout
 
