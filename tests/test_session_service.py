@@ -23,3 +23,12 @@ def test_result_selection_rejects_other_session(tmp_path: Path):
     result = service.add_result(IntermediateResult(session_id=first.id, interaction_id="i"), "answer")
     with pytest.raises(KeyError):
         service.select_final_result(second, result.id)
+
+
+def test_duplicate_result_cannot_overwrite_journal(tmp_path: Path):
+    service = SessionService(tmp_path)
+    session = service.create("journal")
+    result = IntermediateResult(session_id=session.id, interaction_id="i")
+    service.add_result(result, "first")
+    with pytest.raises(ValueError):
+        service.add_result(result, "second")

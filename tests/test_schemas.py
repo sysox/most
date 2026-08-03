@@ -17,3 +17,11 @@ def test_configuration_service_schema_accepts_complete_record():
 def test_configuration_schema_rejects_unknown_location():
     with pytest.raises(ValueError):
         require_valid_ai_configuration({"id": "i", "name": "n", "provider_id": "p", "access_method_id": "a", "location": "unsafe"})
+
+
+def test_configuration_schema_rejects_plaintext_credentials():
+    errors = validate_ai_configuration({
+        "id": "i", "name": "n", "provider_id": "p", "access_method_id": "a",
+        "location": "local", "adapter_options": {"api_key": "plaintext"},
+    })
+    assert any("plaintext credentials" in error for error in errors)

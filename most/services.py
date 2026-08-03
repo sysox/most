@@ -173,12 +173,15 @@ class SessionService:
             if source_selection.git_diff:
                 source_messages.append({"role": "system", "content": f"[workspace git diff]\n{source_selection.git_diff}"})
         combined_messages = source_messages + messages
+        pinned_indices = set(range(len(source_messages)))
+        if messages:
+            pinned_indices.add(len(combined_messages) - 1)
         selected, transformation = apply_overflow_policy(
             combined_messages,
             token_limit=token_limit,
             policy=configuration.context_overflow_policy,
             reserved_output_tokens=reserved_output_tokens,
-            pinned_indices=set(range(len(source_messages))),
+            pinned_indices=pinned_indices,
         )
         metadata: dict[str, object] = {}
         if source_selection is not None:

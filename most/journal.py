@@ -24,6 +24,8 @@ class JournalService:
 
     def record_result(self, result: IntermediateResult, content: str) -> Path:
         relative = f"sessions/{result.session_id}/results/{result.id}.md"
+        if (self.store.root / relative).exists():
+            raise FileExistsError(f"intermediate result already exists: {result.id}")
         path = self.store._atomic_write(relative, content)
         self.store.write_json(
             f"sessions/{result.session_id}/structured/result-{result.id}.json",

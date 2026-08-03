@@ -13,10 +13,10 @@ def test_context_assembly_is_persisted_and_policy_is_explicit(tmp_path: Path):
     result = service.add_result(IntermediateResult(session_id=session.id, interaction_id="i"), "answer")
     configuration = AIConfiguration(context_overflow_policy=OverflowPolicy.FAIL)
     with pytest.raises(ContextOverflowError):
-        service.assemble_request_context(session, "i", result.id, [{"content": "x" * 100}], configuration, 1)
+        service.assemble_request_context(session, "i", result.id, [{"content": "x" * 100}, {"content": "request"}], configuration, 2)
     configuration.context_overflow_policy = OverflowPolicy.TRIM_OLDEST
-    selected, record = service.assemble_request_context(session, "i", result.id, [{"content": "x" * 100}], configuration, 1)
-    assert selected == []
+    selected, record = service.assemble_request_context(session, "i", result.id, [{"content": "x" * 100}, {"content": "request"}], configuration, 2)
+    assert selected == [{"content": "request"}]
     assert "trimmed" in record.transformations[-1]
 
 
