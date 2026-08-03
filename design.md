@@ -1,6 +1,6 @@
 # Multi-Provider AI Access Application
 
-**Specification version:** 10
+**Specification version:** 12 — Final MVP Design
 
 ## 1. Project Goal
 
@@ -38,7 +38,7 @@ The central principle is:
 
 > Select the AI, select how it is accessed, preserve every result, and use Git whenever AI changes versioned files.
 
-This version is intended to be implementation-ready for the MVP.
+This version is the final architectural specification for the MVP. Implementation details may refine types and signatures, but must preserve the stated safety and history guarantees.
 
 ---
 
@@ -582,6 +582,123 @@ LoggingPolicy
 - git_journal_enabled
 ```
 
+## 7.9 Common Type and Reference Conventions
+
+All persistent records use explicit, portable types.
+
+```text
+ID
+    UUIDv7 or ULID encoded as a lowercase string.
+
+Timestamp
+    UTC RFC 3339 with millisecond precision.
+
+PathReference
+    A platform-neutral logical reference plus an optional resolved local path.
+
+ArtifactReference
+    Content hash plus artifact metadata reference.
+
+SecretReference
+    Opaque identifier resolved only through CredentialService.
+
+Money
+    Decimal amount plus ISO currency code; never binary floating point.
+
+TokenCount
+    Non-negative integer plus estimator name and estimator version.
+
+Metadata
+    JSON-compatible object with namespaced extension keys.
+```
+
+### Versioned persisted-record header
+
+Every top-level record persisted as YAML, JSON, or one line of JSONL includes the following flattened header:
+
+```text
+PersistedRecordHeader
+- schema_version
+- record_type
+- record_id
+- written_at
+- writer_application_version
+```
+
+Field rules:
+
+```text
+schema_version
+    Positive integer identifying the schema of that record type.
+
+record_type
+    Stable namespaced type identifier, for example:
+    AI_CONFIGURATION, EXECUTION, STREAM_EVENT, AI_ITERATION.
+
+record_id
+    Stable ID of the serialized record.
+
+written_at
+    Timestamp at which this serialized representation was written.
+
+writer_application_version
+    Application version that produced the record.
+```
+
+The header is flattened into the top-level object rather than nested under another key.
+
+The domain schemas below list their domain-specific fields and may omit these inherited serialization fields for readability. They do not omit them from the persisted representation.
+
+For a domain object that already has `id`, `record_id` must equal `id`. For singleton records such as `ApplicationSettings`, `record_id` is the stable `application_instance_id`.
+
+Each JSONL line is independently versioned because lines must remain parseable and recoverable without relying on a file-level header.
+
+Readers and writers follow these rules:
+
+- writers emit exactly one currently supported schema version for each record type;
+- readers dispatch by `(record_type, schema_version)`;
+- readers may migrate older supported versions in memory;
+- unsupported newer versions are preserved or rejected explicitly, never partially reinterpreted;
+- unknown fields are retained when records are read and rewritten where practical;
+- migrations must not overwrite the original record silently;
+- schema-version changes require fixtures and compatibility tests.
+
+General rules:
+
+- IDs are immutable and globally unique within an application-data root;
+- timestamps ending in `_at` are UTC;
+- references ending in `_id` refer to persistent records;
+- references ending in `_reference` refer to files, artifacts, secrets, or external provider objects;
+- lists are empty rather than `null` unless absence has distinct meaning;
+- optional scalar fields are explicitly nullable;
+- enums use uppercase values in persisted YAML/JSON;
+- internal Python or application names may use lowercase, but serialization is canonical;
+- unknown enum values must be preserved when reading newer records, not silently discarded.
+
+## 7.10 ApplicationSettings
+
+Application-wide defaults and service configuration are owned by one explicit record.
+
+```text
+ApplicationSettings
+- application_instance_id
+- default_exposure_transition_policy_reference
+- default_context_overflow_policy
+- default_workspace_context_strategy
+- application_data_root
+- browser_profile_root
+- temporary_workspace_root
+- artifact_root
+- default_logging_policy
+- lease_timeout_seconds
+- process_cancel_grace_seconds
+- event_flush_interval_ms
+- created_at
+- updated_at
+```
+
+`ApplicationSettings` is stored in `app-config.yaml` and inherits `PersistedRecordHeader`. Its `record_id` equals `application_instance_id`. Per-configuration and per-request values override these defaults only according to the precedence rules in §7.3.
+
 ---
 
 ## 8. Session and Result Model
@@ -886,6 +1003,8 @@ Execution
 - resolved_network
 - network_resolution_confidence
 - network_resolution_evidence_reference
+- created_at
+- updated_at
 - started_at
 - finished_at
 - usage
@@ -929,6 +1048,26 @@ STALE_LEASE_TAKEOVER_REQUIRED
 ```
 
 This keeps lifecycle state separate from the reason user action is required.
+
+### Execution lifecycle transitions
+
+Only the following state transitions are valid:
+
+```text
+created → validating
+validating → ready | waiting_for_user | failed | cancelled
+ready → starting | cancelled
+starting → running | waiting_for_user | failed | cancelled
+running → streaming | waiting_for_user | completed | failed | cancelled
+streaming → waiting_for_user | completed | failed | cancelled
+waiting_for_user → ready | running | streaming | failed | cancelled
+```
+
+`completed`, `failed`, and `cancelled` are terminal states. No transition out of a terminal state is valid.
+
+A retry or recreated request creates a new `Execution`; terminal records are immutable except for append-only audit annotations.
+
+Every transition is persisted as a `StatusEvent` before the derived execution snapshot is updated.
 
 ## 10.1 ExecutionStep
 
@@ -984,6 +1123,23 @@ Inferred steps must be marked explicitly and carry lower confidence.
 
 ## 10.2 StreamEvent
 
+Every stream event shares a common envelope:
+
+```text
+StreamEvent
+- event_id
+- execution_id
+- sequence_number
+- event_type
+- created_at
+- observation_source
+- payload
+- previous_event_hash
+- event_hash
+```
+
+Supported event types include:
+
 ```text
 TextDeltaEvent
 StatusEvent
@@ -995,6 +1151,8 @@ IntermediateResultEvent
 CompletedEvent
 ErrorEvent
 ```
+
+`sequence_number` is strictly increasing within one execution. Event hashes are optional for ordinary sessions and required when tamper-evident audit logging is enabled.
 
 Raw text deltas may be stored in `events.jsonl`, while meaningful assembled stages are stored as separate intermediate results.
 
@@ -1038,15 +1196,15 @@ local_execution
 Every adapter implements:
 
 ```text
-validate_configuration(configuration)
-test_connection(configuration)
-get_capabilities(configuration)
-get_observability_profile(configuration)
-resolve_connectivity(configuration)
-list_models(configuration)
-execute(request)
-stream(request)
-cancel(execution_id)
+validate_configuration(configuration) -> ValidationReport
+test_connection(configuration, credential_handle?) -> ConnectionReport
+get_capabilities(configuration, credential_handle?) -> CapabilityReport
+get_observability_profile(configuration) -> AdapterObservabilityProfile
+resolve_connectivity(configuration) -> ConnectivityResolution
+list_models(configuration, credential_handle?) -> list[ModelDescriptor]
+execute(context) -> AIResponse
+stream(context) -> AsyncIterator[StreamEvent]
+cancel(cancellation_handle) -> CancellationReport
 ```
 
 Optional functions:
@@ -1068,7 +1226,37 @@ health_check()
 
 Before execution, the adapter must resolve the actual endpoint, location, and network path as far as reasonably determinable and return these values to `ExecutionManager`. The adapter must not suppress or silently downgrade a mismatch. Exposure-policy evaluation belongs to `ExecutionManager`.
 
-## 12.1 Adapter Observability
+## 12.1 AdapterExecutionContext
+
+Adapters receive one fully resolved execution context rather than independently loading configuration or secrets.
+
+```text
+AdapterExecutionContext
+- execution_id
+- request_snapshot
+- configuration_snapshot
+- effective_capabilities
+- context_assembly_record
+- resolved_connectivity
+- credential_handle
+- workspace_scope
+- cancellation_handle
+- event_sink
+- platform_services
+```
+
+Rules:
+
+- `credential_handle` is opaque and short-lived;
+- adapters must not read configuration repositories directly;
+- adapters emit events only through `event_sink`;
+- adapters write no journal files directly;
+- workspace access is limited to `workspace_scope`;
+- `cancel(cancellation_handle)` receives the same opaque handle stored in `AdapterExecutionContext.cancellation_handle`;
+- the handle may represent a provider request, POSIX process group, Windows Job Object, browser task, or adapter-specific cancellation primitive;
+- the context snapshot is immutable for the duration of an execution.
+
+## 12.2 Adapter Observability
 
 Adapters do not all expose the same internal detail. Each adapter must declare an `AdapterObservabilityProfile`.
 
@@ -1548,6 +1736,48 @@ YamlWorkspaceRepository
 ```
 
 Future SQL implementations may replace these without changing domain services.
+
+### Authoritative file locations
+
+```text
+app-config.yaml
+    ApplicationSettings and schema version.
+
+ai-configurations/<configuration-id>.yaml
+    Current AIConfiguration records.
+
+capabilities/<configuration-id>.yaml
+    Discovered capability snapshots.
+
+sessions/<session-id>/session.yaml
+    AISession source of truth.
+
+sessions/<session-id>/interactions.jsonl
+    Ordered Interaction records.
+
+sessions/<session-id>/results/<result-id>.md
+    Human-readable IntermediateResult content.
+
+sessions/<session-id>/structured/<record-id>.json
+    Requests, responses, context records, and structured results.
+
+executions/<yyyy>/<mm>/<execution-id>/metadata.yaml
+    Execution source of truth.
+
+executions/<yyyy>/<mm>/<execution-id>/events.jsonl
+    Ordered StreamEvent journal.
+
+workspaces/<workspace-id>.yaml
+    Workspace configuration and journal linkage.
+
+artifacts/sha256/<prefix>/<hash>
+    Content-addressed artifact bytes.
+
+indexes/
+    Rebuildable caches only; never authoritative.
+```
+
+Session records reference execution IDs; execution records reference session, interaction, request, and configuration snapshot IDs. Workspace journals may live with a project, but the application-data record remains the authoritative pointer to their canonical location.
 
 ---
 
@@ -2364,7 +2594,62 @@ The file and Git history can remain as exports and reproducibility artifacts.
 
 ---
 
-## 30. Success Criteria
+## 30. Pre-Build Implementation Checklist
+
+The MVP implementation may begin when each item has an explicit decision, test, or stub with conservative behavior.
+
+### Domain and serialization
+
+- [ ] Define canonical enums and nullable fields.
+- [ ] Implement `PersistedRecordHeader` on every YAML, JSON, and JSONL record.
+- [ ] Implement tolerant readers and strict writers.
+- [ ] Validate all cross-record references.
+- [ ] Use UTC timestamps and stable IDs consistently.
+
+### Adapter boundary
+
+- [ ] Implement `AdapterExecutionContext`.
+- [ ] Confirm each adapter's observability profile.
+- [ ] Ensure adapters cannot write journals or resolve secrets independently.
+- [ ] Implement connectivity resolution with explicit confidence.
+- [ ] Implement cancellation reports and complete subprocess-tree termination.
+
+### Context and privacy
+
+- [ ] Record every context-assembly decision.
+- [ ] Enforce shared token budgets.
+- [ ] Default workspace context to explicit selection.
+- [ ] Resolve exposure and overflow policies using documented precedence.
+- [ ] Block transmission until exposure checks complete.
+
+### Persistence and recovery
+
+- [ ] Implement one `PersistenceCoordinator` writer.
+- [ ] Use atomic replacement for snapshots and append-only JSONL for events.
+- [ ] Implement stale data-root and workspace lease recovery.
+- [ ] Verify Windows sharing, retry, and antivirus-lock behavior.
+- [ ] Rebuild indexes entirely from authoritative files.
+
+### Workspace and Git
+
+- [ ] Detect dirty state, submodules, LFS, and path constraints.
+- [ ] Implement the isolation fallback chain.
+- [ ] Acquire one active-writer workspace lease.
+- [ ] Detect divergence before patching and committing.
+- [ ] Link each checkpoint bidirectionally with its AI execution.
+- [ ] Require confirmation for merge, squash, history rewrite, or destructive recovery.
+
+### Security
+
+- [ ] Store credentials only through native or encrypted secret stores.
+- [ ] Reject browser-profile paths overlapping repositories or journals.
+- [ ] Redact secrets before persistence and export.
+- [ ] Treat unknown connectivity as unsafe.
+- [ ] Verify that sensitive logging can be disabled without breaking execution.
+
+---
+
+## 31. Success Criteria
 
 The project is successful when:
 
@@ -2398,7 +2683,7 @@ The project is successful when:
 
 ---
 
-## 31. Final Design Principle
+## 32. Final Design Principle
 
 There are two forms of history:
 
@@ -2424,3 +2709,5 @@ concurrent file changes pause instead of being guessed
 ```
 
 > Normal AI work preserves every meaningful result. File-changing AI work additionally preserves every iteration as Git history.
+
+Version 12 closes the final known specification-level inconsistencies. Further findings should be treated as implementation issues or explicitly proposed design changes rather than implicit corrections.
