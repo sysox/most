@@ -76,7 +76,7 @@ def test_transcription_posts_audio_as_multipart(tmp_path: Path, monkeypatch):
     assert captured["request"].headers["Authorization"] == "Bearer secret"
 
 
-def test_openai_compatible_embedding_and_image_analysis():
+def test_openai_compatible_embedding_and_image_analysis(tmp_path: Path):
     def transport(url, headers, payload):
         if url.endswith("/embeddings"):
             return HTTPResponse(200, {"data": [{"embedding": [0.1, 0.2]}], "usage": {"prompt_tokens": 2}})
@@ -85,7 +85,7 @@ def test_openai_compatible_embedding_and_image_analysis():
     vector, embedding_usage = embed_openai_compatible(transport, "http://localhost/v1", "embedding", None, "hello")
     assert vector == [0.1, 0.2]
     assert embedding_usage["prompt_tokens"] == 2
-    image_path = Path("/tmp/most-test-image.png")
+    image_path = tmp_path / "most-test-image.png"
     image_path.write_bytes(b"png")
     try:
         result, image_usage = analyze_image_openai_compatible(transport, "http://localhost/v1", "vision", None, image_path, "describe")
