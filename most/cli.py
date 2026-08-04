@@ -178,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.from_env:
                 env_name = {
                     "openai": "OPENAI_API_KEY",
-                    "einfra": "EINFRA_API_KEY",
+                    "einfra": "CERIT_API_KEY",
                     "anthropic": "ANTHROPIC_API_KEY",
                     "google": "GOOGLE_API_KEY",
                 }.get(args.provider)
