@@ -1,8 +1,9 @@
-"""Opt-in smoke test for the provider routes documented by MOST.
+"""Opt-in live tests for the provider routes documented by MOST.
 
-The test is intentionally disabled during the normal unit-test run.  Enable it
-with ``MOST_RUN_PROVIDER_INTEGRATION=1`` after configuring the provider
-credentials described in ``install.md``.
+The tests are intentionally disabled during the normal unit-test run. Enable
+all provider checks with ``MOST_RUN_PROVIDER_INTEGRATION=1`` or select one
+with ``MOST_PROVIDER=ollama|einfra|cloud``. Provider-specific model variables
+are documented in ``ai-catalog.yaml`` and ``install.md``.
 """
 
 from __future__ import annotations
@@ -32,12 +33,13 @@ class Provider:
 
 
 def _providers() -> list[Provider]:
+    selected_model = os.environ.get("MOST_MODEL")
     return [
         Provider(
             "ollama",
             OpenAICompatibleAdapter(urllib_json_transport),
             {
-                "model_reference": os.environ.get("MOST_OLLAMA_MODEL", "granite4.1:3b"),
+                "model_reference": selected_model or os.environ.get("MOST_OLLAMA_MODEL", "granite4.1:3b"),
                 "adapter_options": {
                     "base_url": os.environ.get(
                         "MOST_OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1"
@@ -49,7 +51,7 @@ def _providers() -> list[Provider]:
             "einfra",
             OpenAICompatibleAdapter(urllib_json_transport),
             {
-                "model_reference": os.environ.get("MOST_EINFRA_MODEL", "mini"),
+                "model_reference": selected_model or os.environ.get("MOST_EINFRA_MODEL", "mini"),
                 "adapter_options": {
                     "base_url": os.environ.get(
                         "MOST_EINFRA_BASE_URL", "https://llm.ai.e-infra.cz/v1"
@@ -62,7 +64,7 @@ def _providers() -> list[Provider]:
             "cloud",
             CloudAPIAdapter(urllib_json_transport),
             {
-                "model_reference": os.environ.get("MOST_CLOUD_MODEL", "gpt-4o-mini"),
+                "model_reference": selected_model or os.environ.get("MOST_CLOUD_MODEL", "gpt-4o-mini"),
                 "adapter_options": {
                     "base_url": os.environ.get(
                         "MOST_CLOUD_BASE_URL", "https://api.openai.com/v1/chat/completions"
@@ -86,10 +88,19 @@ def _skip_reason(provider: Provider) -> str | None:
     return None
 
 
+def _is_selected(provider: Provider) -> bool:
+    selected = os.environ.get("MOST_PROVIDER")
+    return selected in {None, "all", provider.name}
+
+
 @pytest.mark.parametrize("provider", _providers(), ids=lambda provider: provider.name)
 def test_provider_can_return_assistant_text(provider: Provider):
+    if not _is_selected(provider):
+        pytest.skip(f"provider not selected by MOST_PROVIDER={os.environ['MOST_PROVIDER']}")
     reason = _skip_reason(provider)
     if reason:
+        if os.environ.get("MOST_RUN_PROVIDER_INTEGRATION"):
+            pytest.fail(reason)
         pytest.skip(reason)
 
     request = {"messages": [{"role": "user", "content": PROMPT}]}
@@ -98,7 +109,7 @@ def test_provider_can_return_assistant_text(provider: Provider):
     try:
         response = provider.adapter.execute(request, provider.configuration, provider.credential)
     except (ConnectionError, OSError, TimeoutError) as exc:
-        pytest.skip(f"{provider.name} is unavailable: {exc}")
+        pytest.fail(f"{provider.name} is unavailable: {exc}")
 
     assert isinstance(response, HTTPResponse)
     normalized = normalize_response(response)

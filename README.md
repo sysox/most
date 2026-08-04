@@ -38,6 +38,20 @@ official pages used to refresh it. Exact cloud prices and live e-INFRA model
 availability should be refreshed before cost-sensitive or reproducibility-
 sensitive work.
 
+The live provider test is opt-in. Test all configured providers and fail if a
+provider is unavailable or missing credentials:
+
+```bash
+MOST_RUN_PROVIDER_INTEGRATION=1 uv run pytest tests/test_all_providers.py
+```
+
+Test one provider and model instead:
+
+```bash
+MOST_RUN_PROVIDER_INTEGRATION=1 MOST_PROVIDER=einfra MOST_MODEL=coder \
+  uv run pytest tests/test_all_providers.py
+```
+
 The `chat` command uses the local OpenAI-compatible endpoint at
 `http://127.0.0.1:11434/v1` by default, so it works with Ollama without an API
 key. Pass one prompt for a single turn or omit the prompt for an interactive
