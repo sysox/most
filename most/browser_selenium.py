@@ -62,15 +62,14 @@ class SeleniumFirefoxDriver:
         self._element(selector).click()
 
     def type_text(self, selector: str, value: str) -> None:
-        from selenium.common.exceptions import InvalidElementStateException
         from selenium.webdriver.common.keys import Keys
 
         element = self._element(selector)
-        try:
-            element.clear()
-        except InvalidElementStateException:
-            element.click()
-            element.send_keys(Keys.CONTROL, "a", Keys.BACKSPACE)
+        # WebDriver's clear() uses an innerHTML setter for contenteditable
+        # elements. Gemini's CSP blocks that setter, so edit through the same
+        # keyboard path a user uses instead.
+        element.click()
+        element.send_keys(Keys.CONTROL, "a", Keys.BACKSPACE)
         element.send_keys(value)
 
     def read_text(self, selector: str) -> str:
