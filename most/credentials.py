@@ -113,3 +113,53 @@ class EncryptedFileCredentialStore:
 
     def delete(self, reference: CredentialReference) -> None:
         (self.root / reference.storage_key).unlink(missing_ok=True)
+
+
+class KeyringCredentialStore:
+    """Cross-platform OS credential-store backend."""
+
+    service_name = "most-ai"
+
+    def __init__(self, service_name: str = service_name):
+        try:
+            import keyring
+        except ImportError as exc:
+            raise RuntimeError("keyring support is not installed; run uv sync") from exc
+        self._keyring = keyring
+        self.service_name = service_name
+
+    def create(self, credential_type: str, value: str, display_name: str = "") -> CredentialReference:
+        if not value:
+            raise ValueError("credential value cannot be empty")
+        self._keyring.set_password(self.service_name, credential_type, value)
+        return CredentialReference(credential_type, credential_type, "keyring", credential_type, display_name or credential_type)
+
+    def resolve(self, reference: CredentialReference) -> str:
+        if reference.storage_backend != "keyring":
+            raise ValueError("unsupported credential backend")
+        value = self._keyring.get_password(self.service_name, reference.storage_key)
+        if value is None:
+            raise KeyError("credential unavailable")
+        return value
+
+    def delete(self, reference: CredentialReference) -> None:
+        try:
+            self._keyring.delete_password(self.service_name, reference.storage_key)
+        except self._keyring.errors.PasswordDeleteError:
+            pass
+
+
+def resolve_provider_credential(provider_id: str, environment_name: str | None = None) -> str | None:
+    """Resolve an environment credential first, then the OS keyring."""
+    import os
+
+    if environment_name:
+        value = os.environ.get(environment_name)
+        if value:
+            return value
+    try:
+        return KeyringCredentialStore().resolve(CredentialReference(
+            provider_id, provider_id, "keyring", provider_id, provider_id,
+        ))
+    except (KeyError, RuntimeError):
+        return None

@@ -153,6 +153,19 @@ uv run python -m most --data-root ./application-data gpt-chat \
 Use `--api-key-env` to select a different environment variable and `--base-url`
 for a compatible gateway. The default endpoint is `https://api.openai.com/v1`.
 
+API keys can also be stored in the native OS credential store through the
+unified keyring backend:
+
+```bash
+uv run python -m most credentials set openai
+uv run python -m most credentials set einfra
+uv run python -m most credentials list
+```
+
+MOST uses environment variables first and the keyring second. `keyring` maps to
+Secret Service on Linux, Keychain on macOS, and Credential Locker on Windows.
+Remove a stored key with `most credentials remove <provider>`.
+
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
 requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.

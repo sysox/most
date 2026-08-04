@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 from pathlib import Path
 
@@ -87,6 +88,13 @@ def build_parser() -> argparse.ArgumentParser:
     catalog_refresh.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     catalog_refresh.add_argument("--no-discovered", action="store_true")
     catalog_refresh.add_argument("--show-routes", action="store_true")
+    credentials = subparsers.add_parser("credentials", help="manage provider API keys in the OS keyring")
+    credential_commands = credentials.add_subparsers(dest="credential_command", required=True)
+    credential_set = credential_commands.add_parser("set", help="store or replace a provider API key")
+    credential_set.add_argument("provider")
+    credential_remove = credential_commands.add_parser("remove", help="remove a provider API key")
+    credential_remove.add_argument("provider")
+    credential_commands.add_parser("list", help="list supported provider credential names")
     browser_chat = subparsers.add_parser("browser-chat", help="communicate through a logged-in browser session")
     browser_chat.add_argument("provider", choices=("chatgpt", "gemini", "claude", "cerit"))
     browser_chat.add_argument("prompt", nargs="?")
@@ -156,6 +164,19 @@ def main(argv: list[str] | None = None) -> int:
         print("pricing update validated")
         if args.update:
             print(f"updated: {args.catalog}")
+        return 0
+    if args.command == "credentials":
+        from .credentials import CredentialReference, KeyringCredentialStore
+        store = KeyringCredentialStore()
+        if args.credential_command == "set":
+            value = getpass.getpass(f"{args.provider} API key: ")
+            store.create(args.provider, value, args.provider)
+            print(f"stored credential: {args.provider}")
+        elif args.credential_command == "remove":
+            store.delete(CredentialReference(args.provider, args.provider, "keyring", args.provider, args.provider))
+            print(f"removed credential: {args.provider}")
+        else:
+            print("supported credential names: openai, einfra, anthropic, google")
         return 0
     if args.command == "catalog-options":
         from .model_options import load_model_options, refresh_if_stale
@@ -300,9 +321,8 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
 
 def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
     """Run a journaled CERIT-SC chat using an environment-provided API key."""
-    import os
-
-    credential = os.environ.get(args.api_key_env)
+    from .credentials import resolve_provider_credential
+    credential = resolve_provider_credential("einfra", args.api_key_env)
     if not credential:
         raise SystemExit(f"missing CERIT API key; set ${args.api_key_env} without putting it in configuration files")
     root = args.data_root
@@ -354,11 +374,9 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
 
 def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
     """Run a journaled OpenAI Responses API chat using an environment key."""
-    import os
-
+    from .credentials import resolve_provider_credential
     from .openai_api import normalize_response as normalize_openai_response
-
-    credential = os.environ.get(args.api_key_env)
+    credential = resolve_provider_credential("openai", args.api_key_env)
     if not credential:
         raise SystemExit(f"missing OpenAI API key; set ${args.api_key_env} without putting it in configuration files")
     root = args.data_root

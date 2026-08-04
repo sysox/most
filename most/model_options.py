@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 from datetime import UTC, datetime
@@ -107,7 +106,7 @@ def _option(provider: dict[str, Any], method: dict[str, Any], model_id: str, mod
         "endpoint": method.get("endpoint"),
         "executable": executable,
         "credential_env": credential_env,
-        "credential_available": bool(os.environ.get(credential_env, "")) if credential_env else False,
+        "credential_available": _credential_available(provider_id, credential_env),
         "executable_available": bool(executable and shutil.which(str(executable))),
         "pricing": model.get("pricing", provider.get("pricing", {})),
     }
@@ -122,6 +121,11 @@ def _route_rank(option: dict[str, Any]) -> tuple[int, int]:
     if method == "cli" and option["executable_available"]:
         return (2, 0)
     return (9, 0)
+
+
+def _credential_available(provider_id: str, environment_name: str | None) -> bool:
+    from .credentials import resolve_provider_credential
+    return resolve_provider_credential(provider_id, environment_name) is not None
 
 
 def _load(path: Path) -> dict[str, Any]:
