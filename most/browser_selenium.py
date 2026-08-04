@@ -18,7 +18,9 @@ def _firefox_binary() -> str | None:
         candidates.append(Path(detected))
     candidates.append(Path("/snap/firefox/current/usr/lib/firefox/firefox"))
     for candidate in candidates:
-        if not candidate.is_file() or not (candidate.stat().st_mode & 0o111):
+        if not candidate.is_file():
+            continue
+        if os.name != "nt" and not (candidate.stat().st_mode & 0o111):
             continue
         try:
             with candidate.open("rb") as executable:
