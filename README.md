@@ -182,6 +182,19 @@ uv run python -m most ai-chat --provider google --model gemini-3.5-flash --route
 Use `--route cli` for subscription-backed local clients such as `claude` or
 `agy`. Use `catalog-audit --show-models` to refresh the live model inventory.
 
+Filter the catalog by modality:
+
+```bash
+uv run python -m most catalog-options --capability chat
+uv run python -m most catalog-options --capability embedding
+uv run python -m most catalog-options --capability image
+uv run python -m most catalog-options --capability speech
+```
+
+`ai-chat` requires the selected model to advertise the `chat` capability, so
+embedding, image, and speech models cannot be sent accidentally to a text-chat
+route.
+
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
 requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.

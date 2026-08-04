@@ -66,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     options.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     options.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     options.add_argument("--provider")
+    options.add_argument("--capability", help="show only models supporting a capability, e.g. chat, embedding, image, speech")
     options.add_argument("--json", action="store_true")
     options.add_argument("--no-refresh", action="store_true")
     options.add_argument("--max-age-hours", type=float, default=24.0)
@@ -204,6 +205,8 @@ def main(argv: list[str] | None = None) -> int:
         options = load_model_options(args.catalog, args.discovered)
         if args.provider:
             options = [option for option in options if option["provider_id"] == args.provider]
+        if args.capability:
+            options = [option for option in options if args.capability in option.get("capabilities", [])]
         print(json.dumps(options, indent=2, default=str) if args.json else _format_options(options))
         return 0
     if args.command == "ai-chat":
@@ -234,10 +237,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _format_options(options: list[dict[str, object]]) -> str:
-    lines = ["provider  model                         route              status"]
-    lines.append("-" * 76)
+    lines = ["provider  model                         capability          route              status"]
+    lines.append("-" * 98)
     for option in options:
-        lines.append(f"{option['provider_id']!s:9} {str(option['model_id'])[:29]:29} {option['access_method']!s:18} {option['status']}")
+        capabilities = ",".join(str(value) for value in option.get("capabilities", [])) or "unknown"
+        lines.append(f"{option['provider_id']!s:9} {str(option['model_id'])[:29]:29} {capabilities[:18]:18} {option['access_method']!s:18} {option['status']}")
     return "\n".join(lines)
 
 
@@ -246,7 +250,10 @@ def run_unified_chat(args: argparse.Namespace) -> int:
 
     if not args.no_refresh:
         refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
-    option = select_model(load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route)
+    option = select_model(
+        load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route,
+        required_capability="chat",
+    )
     adapter_type = option["adapter_type"]
     if adapter_type == "openai-api":
         return run_gpt_chat(argparse.Namespace(

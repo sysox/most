@@ -37,6 +37,16 @@ def test_discovered_models_are_available_to_unified_options(tmp_path: Path):
     assert any(option["model_id"] == "kimi-k3" for option in options)
 
 
+def test_select_model_rejects_non_chat_capability():
+    options = [{"provider_id": "google", "model_id": "gemini-embedding-001", "capabilities": ["embedding"], "access_method": "api"}]
+    try:
+        select_model(options, "google", "gemini-embedding-001", required_capability="chat")
+    except ValueError as exc:
+        assert "does not support chat" in str(exc)
+    else:
+        raise AssertionError("embedding model was incorrectly accepted for chat")
+
+
 def test_refresh_if_stale_preserves_existing_snapshot_when_discovery_has_no_models(tmp_path: Path, monkeypatch):
     catalog = tmp_path / "catalog.yaml"
     discovered = tmp_path / "discovered.yaml"

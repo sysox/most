@@ -66,10 +66,16 @@ def refresh_if_stale(catalog_path: Path, discovered_path: Path, *, max_age_hours
         temporary_path.unlink(missing_ok=True)
 
 
-def select_model(options: list[dict[str, Any]], provider_id: str | None, model_id: str, route: str = "auto") -> dict[str, Any]:
+def select_model(
+    options: list[dict[str, Any]], provider_id: str | None, model_id: str, route: str = "auto",
+    required_capability: str | None = None,
+) -> dict[str, Any]:
     matches = [option for option in options if option["model_id"] == model_id and (provider_id is None or option["provider_id"] == provider_id)]
     if not matches:
         raise ValueError(f"model not found in catalog: {provider_id + '/' if provider_id else ''}{model_id}")
+    if required_capability and not any(required_capability in option.get("capabilities", []) for option in matches):
+        available = sorted({capability for option in matches for capability in option.get("capabilities", [])})
+        raise ValueError(f"model {model_id!r} does not support {required_capability}; capabilities: {', '.join(available) or 'unknown'}")
     if route != "auto":
         matches = [option for option in matches if option["access_method"] == route]
         if not matches:
