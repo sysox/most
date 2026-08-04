@@ -18,7 +18,7 @@ SELECTOR_PACKS = {
         "output": "div[data-message-author-role='assistant']",
     }),
     "gemini": SelectorPack("gemini", "2026-08", {
-        "input": "rich-textarea",
+        "input": "rich-textarea .ql-editor",
         "submit": "button[aria-label*='Send']",
         "output": "message-content",
     }),

@@ -62,8 +62,15 @@ class SeleniumFirefoxDriver:
         self._element(selector).click()
 
     def type_text(self, selector: str, value: str) -> None:
+        from selenium.common.exceptions import InvalidElementStateException
+        from selenium.webdriver.common.keys import Keys
+
         element = self._element(selector)
-        element.clear()
+        try:
+            element.clear()
+        except InvalidElementStateException:
+            element.click()
+            element.send_keys(Keys.CONTROL, "a", Keys.BACKSPACE)
         element.send_keys(value)
 
     def read_text(self, selector: str) -> str:

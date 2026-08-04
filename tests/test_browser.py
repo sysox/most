@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from most.browser import BrowserProfileIsolationError, IsolatedBrowserProfileService
+from most.browser_chat import SELECTOR_PACKS
 from most.browser_selenium import _firefox_binary
 from most.cli import build_parser
 
@@ -30,6 +31,7 @@ def test_browser_chat_parser_requires_supported_provider():
     args = build_parser().parse_args(["browser-chat", "gemini", "hello"])
     assert args.provider == "gemini"
     assert args.prompt == "hello"
+    assert SELECTOR_PACKS["gemini"].selectors["input"] == "rich-textarea .ql-editor"
 
 
 def test_browser_chat_parser_supports_manual_relay():
