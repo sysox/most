@@ -2,6 +2,9 @@
 
 Python file-based safety kernel for the multi-provider AI access application.
 
+See the [practical usage manual](examples/basic-usage.md) for copy-paste
+examples covering text, embeddings, images, speech, and model selection.
+
 ## Installation
 
 For complete Linux, Windows, and macOS setup—including provider logins,

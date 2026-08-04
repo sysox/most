@@ -1,0 +1,2 @@
+MOST is a file-backed AI workspace. It selects local or cloud models, records
+conversations, and routes tasks to models with suitable input and output types.
