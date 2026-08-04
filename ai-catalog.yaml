@@ -182,6 +182,11 @@ providers:
     model_discovery:
       method: CLI
       command: agy models
+  - id: api
+    endpoint: https://generativelanguage.googleapis.com/v1beta
+    model_discovery:
+      method: GET
+      endpoint: https://generativelanguage.googleapis.com/v1beta/models
   pricing:
     billing_model: subscription-or-api
     per_1m_tokens: null

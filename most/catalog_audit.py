@@ -119,12 +119,18 @@ def _audit_api(
         return [AuditResult(provider_id, str(method.get("id", "unknown")), None, "unknown", "no GET model discovery route")]
     env_name = ENVIRONMENT_KEYS.get(provider_id)
     credential = os.environ.get(env_name, "") if env_name else ""
+    if not credential and env_name:
+        from .credentials import resolve_provider_credential
+
+        credential = resolve_provider_credential(provider_id, env_name) or ""
     if provider_id not in {"ollama"} and not credential:
         return [AuditResult(provider_id, str(method.get("id", "unknown")), None, "unknown", f"missing {env_name or 'provider credential'}")]
     headers = {"accept": "application/json"}
     if credential:
         if provider_id == "anthropic":
             headers.update({"x-api-key": credential, "anthropic-version": "2023-06-01"})
+        elif provider_id == "google":
+            headers["x-goog-api-key"] = credential
         else:
             headers["authorization"] = f"Bearer {credential}"
     status_code, body = fetch(str(discovery["endpoint"]), headers)
