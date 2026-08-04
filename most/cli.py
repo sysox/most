@@ -60,6 +60,19 @@ def build_parser() -> argparse.ArgumentParser:
     pricing.add_argument("--source", type=Path, required=True, help="YAML pricing update file")
     pricing.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     pricing.add_argument("--update", action="store_true", help="write validated prices to the catalog")
+    options = subparsers.add_parser("catalog-options", help="list unified model and route options")
+    options.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    options.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
+    options.add_argument("--provider")
+    options.add_argument("--json", action="store_true")
+    unified = subparsers.add_parser("ai-chat", help="chat through the selected catalog model and route")
+    unified.add_argument("prompt", nargs="?")
+    unified.add_argument("--provider")
+    unified.add_argument("--model", required=True)
+    unified.add_argument("--route", default="auto", choices=("auto", "openai-compatible", "api", "cli"))
+    unified.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    unified.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
+    unified.add_argument("--title", default="Unified AI chat")
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
     catalog_refresh = subparsers.add_parser("catalog-refresh", help="refresh dynamic model inventory and route status")
     catalog_refresh.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
@@ -140,6 +153,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.update:
             print(f"updated: {args.catalog}")
         return 0
+    if args.command == "catalog-options":
+        from .model_options import load_model_options
+        options = load_model_options(args.catalog, args.discovered)
+        if args.provider:
+            options = [option for option in options if option["provider_id"] == args.provider]
+        print(json.dumps(options, indent=2, default=str) if args.json else _format_options(options))
+        return 0
+    if args.command == "ai-chat":
+        return run_unified_chat(args)
     if args.command == "browser-chat":
         if args.manual:
             from .manual_browser_chat import run_manual_browser_chat
@@ -163,6 +185,43 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, default=str))
         return 0
     return 2
+
+
+def _format_options(options: list[dict[str, object]]) -> str:
+    lines = ["provider  model                         route              status"]
+    lines.append("-" * 76)
+    for option in options:
+        lines.append(f"{option['provider_id']!s:9} {str(option['model_id'])[:29]:29} {option['access_method']!s:18} {option['status']}")
+    return "\n".join(lines)
+
+
+def run_unified_chat(args: argparse.Namespace) -> int:
+    from .model_options import load_model_options, select_model
+
+    option = select_model(load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route)
+    adapter_type = option["adapter_type"]
+    if adapter_type == "openai-api":
+        return run_gpt_chat(argparse.Namespace(
+            data_root=args.data_root, prompt=args.prompt, model=args.model,
+            api_key_env=option["credential_env"] or "OPENAI_API_KEY", base_url="https://api.openai.com/v1", title=args.title,
+        ))
+    if adapter_type == "openai-compatible":
+        if option["provider_id"] == "einfra":
+            return run_cerit_chat(argparse.Namespace(
+                data_root=args.data_root, prompt=args.prompt, model=args.model,
+                api_key_env=option["credential_env"] or "CERIT_API_KEY", base_url="https://llm.ai.e-infra.cz/v1", title=args.title,
+            ))
+        return run_chat(argparse.Namespace(
+            data_root=args.data_root, prompt=args.prompt, model=args.model,
+            base_url=option["endpoint"], title=args.title,
+        ))
+    if adapter_type == "provider-cli":
+        from .cli_chat import run_cli_chat
+        return run_cli_chat(argparse.Namespace(
+            data_root=args.data_root, prompt=args.prompt, provider={"openai": "codex", "anthropic": "claude", "google": "agy"}[option["provider_id"]],
+            title=args.title, allow_unknown_connectivity=True,
+        ))
+    raise SystemExit(f"unsupported unified route: {adapter_type}")
 
 
 def run_chat(args: argparse.Namespace, *, registry=None) -> int:
