@@ -60,6 +60,19 @@ def test_select_model_rejects_missing_input_modality():
         raise AssertionError("text-only model was incorrectly accepted for image input")
 
 
+def test_select_model_rejects_missing_output_modality():
+    options = [{
+        "provider_id": "openai", "model_id": "text-model", "capabilities": ["chat"],
+        "input_modalities": ["text"], "output_modalities": ["text"], "access_method": "api",
+    }]
+    try:
+        select_model(options, "openai", "text-model", required_output_modality="audio")
+    except ValueError as exc:
+        assert "does not produce audio output" in str(exc)
+    else:
+        raise AssertionError("text-only model was incorrectly accepted for audio output")
+
+
 def test_refresh_if_stale_preserves_existing_snapshot_when_discovery_has_no_models(tmp_path: Path, monkeypatch):
     catalog = tmp_path / "catalog.yaml"
     discovered = tmp_path / "discovered.yaml"

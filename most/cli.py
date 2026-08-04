@@ -341,12 +341,18 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
 
     if not args.no_refresh:
         refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
-    option = select_model(
-        load_model_options(args.catalog, args.discovered), args.provider, args.model, "auto",
-        required_capability=args.required_capability,
-        required_input_modality=args.required_input_modality,
-        required_output_modality=args.required_output_modality,
-    )
+    try:
+        option = select_model(
+            load_model_options(args.catalog, args.discovered), args.provider, args.model, "auto",
+            required_capability=args.required_capability,
+            required_input_modality=args.required_input_modality,
+            required_output_modality=args.required_output_modality,
+        )
+    except ValueError as exc:
+        # Model-selection failures are expected user errors (for example, asking
+        # a text-only model to inspect an image), not programming failures. Keep
+        # the CLI concise and actionable instead of exposing a traceback.
+        raise SystemExit(f"cannot use {args.provider}/{args.model}: {exc}") from exc
     compatible = option["adapter_type"] in {"openai-api", "openai-compatible", "gemini-api"}
     if not compatible:
         raise SystemExit("selected route does not support this non-text task")
