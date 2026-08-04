@@ -233,6 +233,7 @@ uv run python -m most catalog-options --capability chat
 uv run python -m most catalog-options --capability embedding
 uv run python -m most catalog-options --capability image
 uv run python -m most catalog-options --capability speech
+uv run python -m most catalog-options --capability transcription
 ```
 
 `catalog-options` displays explicit `input` and `output` columns. For example,
@@ -256,6 +257,19 @@ uv run python -m most ai-image-analyze --model gemini-3.5-flash --input picture.
 These commands currently target the Google Gemini API. The catalog validates
 the required capability before sending a request; generated binary output is
 written exactly as returned by the provider, with its MIME type printed.
+
+Audio transcription uses an audio-to-text model such as OpenAI Whisper:
+
+```bash
+uv run python -m most ai-transcribe \
+  --provider openai --model whisper-1 \
+  --input examples/media/sample-speech.wav
+```
+
+The transcript is printed to the terminal and recorded in the session journal.
+Use `catalog-options --capability transcription` to find other configured
+audio-to-text models. The selected model must advertise `audio` input and
+`text` output; MOST rejects incompatible models before transmission.
 
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
