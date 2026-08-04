@@ -59,7 +59,14 @@ class SeleniumFirefoxDriver:
         self.driver.get(url)
 
     def click(self, selector: str) -> None:
-        self.wait_for_element(selector, timeout=10)
+        if not self.wait_for_element(selector, timeout=10) and "aria-label*='Send'" in selector:
+            # Gemini periodically removes or renames its send button. The
+            # editor remains focused after type_text(), and Enter is its
+            # standard submit action.
+            from selenium.webdriver.common.keys import Keys
+
+            self.driver.switch_to.active_element.send_keys(Keys.ENTER)
+            return
         self._element(selector).click()
 
     def type_text(self, selector: str, value: str) -> None:
