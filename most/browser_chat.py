@@ -75,7 +75,10 @@ class BrowserSessionAdapter:
 
 def run_browser_chat(args: Namespace) -> int:
     profile_root = managed_browser_profile_root()
-    profile = profile_root / args.provider
+    profile_name = args.profile or args.provider
+    if Path(profile_name).name != profile_name or profile_name in {"", ".", ".."}:
+        raise SystemExit("browser profile name must be a simple name without path separators")
+    profile = profile_root / profile_name
     profile_service = IsolatedBrowserProfileService(profile_root)
     forbidden_roots = [args.data_root.resolve(), Path.cwd().resolve()]
     profile_service.validate_isolated_profile_path(profile, forbidden_roots)

@@ -40,6 +40,11 @@ def test_browser_chat_parser_supports_manual_relay():
     assert args.manual is True
 
 
+def test_browser_chat_parser_supports_named_login_profile():
+    args = build_parser().parse_args(["browser-chat", "gemini", "--profile", "gemini-edu"])
+    assert args.profile == "gemini-edu"
+
+
 def test_browser_chat_supports_cerit_webui():
     args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
     assert args.provider == "cerit"

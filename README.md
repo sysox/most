@@ -279,6 +279,14 @@ This mode does not inspect cookies, automate login, bypass CAPTCHA, or evade
 provider security controls. It records the manually mediated exchange in the
 MOST journal.
 
+Use separate named profiles when you have more than one account, for example
+personal Gemini and Gemini for Education. Each profile keeps its own login:
+
+```bash
+uv run python -m most browser-chat gemini --profile gemini-personal
+uv run python -m most browser-chat gemini --profile gemini-edu
+```
+
 Installed subscription-backed CLI clients can be used directly from the
 terminal. MOST runs them in an application-managed sandbox and records their
 observable command/output history:
