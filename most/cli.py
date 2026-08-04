@@ -65,6 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
     options.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     options.add_argument("--provider")
     options.add_argument("--json", action="store_true")
+    options.add_argument("--no-refresh", action="store_true")
+    options.add_argument("--max-age-hours", type=float, default=24.0)
     unified = subparsers.add_parser("ai-chat", help="chat through the selected catalog model and route")
     unified.add_argument("prompt", nargs="?")
     unified.add_argument("--provider")
@@ -73,6 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     unified.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     unified.add_argument("--title", default="Unified AI chat")
+    unified.add_argument("--no-refresh", action="store_true")
+    unified.add_argument("--max-age-hours", type=float, default=24.0)
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
     catalog_refresh = subparsers.add_parser("catalog-refresh", help="refresh dynamic model inventory and route status")
     catalog_refresh.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
@@ -154,7 +158,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"updated: {args.catalog}")
         return 0
     if args.command == "catalog-options":
-        from .model_options import load_model_options
+        from .model_options import load_model_options, refresh_if_stale
+        if not args.no_refresh:
+            refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
         options = load_model_options(args.catalog, args.discovered)
         if args.provider:
             options = [option for option in options if option["provider_id"] == args.provider]
@@ -196,8 +202,10 @@ def _format_options(options: list[dict[str, object]]) -> str:
 
 
 def run_unified_chat(args: argparse.Namespace) -> int:
-    from .model_options import load_model_options, select_model
+    from .model_options import load_model_options, refresh_if_stale, select_model
 
+    if not args.no_refresh:
+        refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
     option = select_model(load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route)
     adapter_type = option["adapter_type"]
     if adapter_type == "openai-api":

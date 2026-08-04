@@ -1,6 +1,7 @@
+import os
 from pathlib import Path
 
-from most.model_options import load_model_options, select_model
+from most.model_options import load_model_options, refresh_if_stale, select_model
 
 
 def test_select_model_prefers_openai_api_when_key_is_available(tmp_path: Path, monkeypatch):
@@ -34,3 +35,13 @@ def test_discovered_models_are_available_to_unified_options(tmp_path: Path):
     discovered.write_text("providers:\n  - id: einfra\n    models:\n      - id: kimi-k3\n        status: available\n", encoding="utf-8")
     options = load_model_options(catalog, discovered)
     assert any(option["model_id"] == "kimi-k3" for option in options)
+
+
+def test_refresh_if_stale_preserves_existing_snapshot_when_discovery_has_no_models(tmp_path: Path, monkeypatch):
+    catalog = tmp_path / "catalog.yaml"
+    discovered = tmp_path / "discovered.yaml"
+    catalog.write_text("providers: []\n", encoding="utf-8")
+    discovered.write_text("providers:\n  - id: old\n", encoding="utf-8")
+    os.utime(discovered, (1, 1))
+    assert refresh_if_stale(catalog, discovered) is False
+    assert "old" in discovered.read_text(encoding="utf-8")

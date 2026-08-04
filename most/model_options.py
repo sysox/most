@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +43,28 @@ def load_model_options(catalog_path: Path = Path("ai-catalog.yaml"), discovered_
                 if isinstance(method, dict):
                     options.append(_option(provider, method, model_id, model))
     return options
+
+
+def refresh_if_stale(catalog_path: Path, discovered_path: Path, *, max_age_hours: float = 24.0) -> bool:
+    """Refresh dynamic discovery when stale, preserving the last good snapshot."""
+    if discovered_path.exists():
+        age_seconds = datetime.now(UTC).timestamp() - discovered_path.stat().st_mtime
+        if age_seconds < max_age_hours * 3600:
+            return False
+    from .catalog_audit import audit_catalog
+
+    discovered_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=discovered_path.parent, prefix=".ai-discovered-", suffix=".yaml", delete=False) as temporary:
+        temporary_path = Path(temporary.name)
+    try:
+        results, _ = audit_catalog(catalog_path, discovered_path=temporary_path)
+        has_models = any(result.model_id and "exact model discovered" in result.reason for result in results)
+        if has_models:
+            temporary_path.replace(discovered_path)
+            return True
+        return False
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def select_model(options: list[dict[str, Any]], provider_id: str | None, model_id: str, route: str = "auto") -> dict[str, Any]:
