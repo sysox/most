@@ -59,6 +59,17 @@ MOST_RUN_PROVIDER_INTEGRATION=1 MOST_PROVIDER=claude \
   uv run pytest tests/test_all_providers.py
 ```
 
+For a simple live API smoke test across the configured chat providers, run:
+
+```bash
+./scripts/smoke-test-ai.sh
+```
+
+This sends one short request to Ollama, e-INFRA, OpenAI, Anthropic, and Google.
+Override a model with variables such as `MOST_OPENAI_MODEL` or change the
+prompt with `MOST_SMOKE_PROMPT`. API routes may incur usage charges; browser
+and subscription CLI routes are tested separately.
+
 Audit the catalog routes and model discovery endpoints from the current
 machine. Missing credentials are reported as `unknown`; they are not treated
 as provider failures. Add `--update` only when you want confirmed model
