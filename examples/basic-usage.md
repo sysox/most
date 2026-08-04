@@ -135,7 +135,23 @@ uv run python -m most inspect-execution EXECUTION_ID
 uv run python -m most list-sessions
 ```
 
-## 10. Store credentials safely
+## 10. Keep separate browser accounts
+
+Browser profiles are available for Gemini, ChatGPT, Claude, and CERIT. Create
+one named profile per account; each profile keeps its own login cookies:
+
+```bash
+uv run python -m most browser-chat gemini --profile gemini-edu
+uv run python -m most browser-chat gemini --profile gemini-personal
+uv run python -m most browser-chat claude --profile claude-work
+uv run python -m most browser-chat chatgpt --profile chatgpt-personal
+uv run python -m most browser-chat cerit --profile cerit-institution
+```
+
+Log into each profile once when Firefox opens. API and CLI routes use their own
+credential systems and do not need browser profiles.
+
+## 11. Store credentials safely
 
 ```bash
 uv run python -m most credentials set openai
