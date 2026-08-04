@@ -24,6 +24,20 @@ def embed(transport: Transport, base_url: str, model: str, credential: str, text
     return [float(value) for value in values]
 
 
+def embed_openai_compatible(transport: Transport, base_url: str, model: str, credential: str | None, text: str) -> tuple[list[float], dict[str, Any]]:
+    headers = {"content-type": "application/json"}
+    if credential:
+        headers["authorization"] = f"Bearer {credential}"
+    response = transport(base_url.rstrip("/") + "/embeddings", headers, {"model": model, "input": text})
+    if response.status >= 400:
+        raise RuntimeError(f"embedding returned HTTP {response.status}: {response.body.get('error', response.body)}")
+    data = response.body.get("data", [])
+    values = data[0].get("embedding") if data and isinstance(data[0], dict) else None
+    if not isinstance(values, list) or not all(isinstance(value, (int, float)) for value in values):
+        raise RuntimeError("embedding response did not contain numeric values")
+    return [float(value) for value in values], response.body.get("usage", {})
+
+
 def generate_image(transport: Transport, base_url: str, model: str, credential: str, prompt: str) -> tuple[bytes, str]:
     body = _generate(
         transport, base_url, model, credential, "generateContent",
@@ -60,6 +74,27 @@ def analyze_image(transport: Transport, base_url: str, model: str, credential: s
     if not text:
         raise RuntimeError("Gemini image-analysis response did not contain text")
     return text
+
+
+def analyze_image_openai_compatible(transport: Transport, base_url: str, model: str, credential: str | None, image_path: Path, prompt: str) -> tuple[str, dict[str, Any]]:
+    import base64
+    data = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    mime = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
+    content = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}},
+    ]
+    headers = {"content-type": "application/json"}
+    if credential:
+        headers["authorization"] = f"Bearer {credential}"
+    response = transport(base_url.rstrip("/") + "/chat/completions", headers, {"model": model, "messages": [{"role": "user", "content": content}]})
+    if response.status >= 400:
+        raise RuntimeError(f"image analysis returned HTTP {response.status}: {response.body.get('error', response.body)}")
+    choices = response.body.get("choices", [])
+    text = choices[0].get("message", {}).get("content") if choices else None
+    if not isinstance(text, str):
+        raise TypeError("image analysis response did not contain text")
+    return text, response.body.get("usage", {})
 
 
 def transcribe_audio(base_url: str, model: str, credential: str | None, audio_path: Path) -> str:

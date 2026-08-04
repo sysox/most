@@ -101,6 +101,19 @@ uv run python -m most ai-transcribe \
 
 The transcription is printed and recorded in the session journal.
 
+The same transcription and embedding interfaces can use an OpenAI-compatible
+local or institutional endpoint when the selected catalog model advertises the
+required modality, for example:
+
+```bash
+uv run python -m most ai-embed \
+  --provider ollama --model embeddinggemma:latest \
+  --input examples/sample.txt --output /tmp/local.embedding.json
+```
+
+Task records include provider usage when returned and estimate cost from the
+catalog pricing metadata when both are available.
+
 ## 8. Analyze an image
 
 ```bash

@@ -347,10 +347,11 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
         required_input_modality=args.required_input_modality,
         required_output_modality=args.required_output_modality,
     )
-    if args.required_capability != "transcription" and option["adapter_type"] != "gemini-api":
-        raise SystemExit("this non-text task currently supports the Google Gemini API route")
+    compatible = option["adapter_type"] in {"openai-api", "openai-compatible", "gemini-api"}
+    if not compatible:
+        raise SystemExit("selected route does not support this non-text task")
     credential = resolve_provider_credential(args.provider, option["credential_env"])
-    if not credential and getattr(args, "require_credential", True):
+    if not credential and getattr(args, "require_credential", True) and args.provider != "ollama":
         raise SystemExit(f"missing {args.provider} API key; store it with credentials set or provide the environment variable")
     return option, credential
 
@@ -362,13 +363,19 @@ def run_embedding(args: argparse.Namespace) -> int:
     from .multimodal import embed
 
     option, credential = _select_capability_task(args)
-    vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
+    if option["adapter_type"] == "gemini-api":
+        vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
+        usage = {}
+    else:
+        from .multimodal import embed_openai_compatible
+        vector, usage = embed_openai_compatible(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
     serialized = json.dumps({"model": args.model, "dimensions": len(vector), "values": vector}, indent=2)
     from .task_journal import record_task
     session_id = record_task(
         args.data_root, provider=args.provider, model=args.model, operation="embedding",
         input_summary=f"text file: {args.input}", output_summary=f"embedding with {len(vector)} dimensions",
-        metadata={"dimensions": len(vector), "output": str(args.output) if args.output else None},
+        metadata={"dimensions": len(vector), "output": str(args.output) if args.output else None, "usage": usage},
+        pricing=option.get("pricing"),
     )
     if args.output:
         args.output.write_text(serialized + "\n", encoding="utf-8")
@@ -391,6 +398,7 @@ def run_image_generation(args: argparse.Namespace) -> int:
         args.data_root, provider=args.provider, model=args.model, operation="image-generation",
         input_summary=args.prompt, output_summary=f"image written to {args.output}",
         metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
+        pricing=option.get("pricing"),
     )
     print(f"image written: {args.output} ({mime})")
     print(f"session: {session_id}")
@@ -409,6 +417,7 @@ def run_speech(args: argparse.Namespace) -> int:
         args.data_root, provider=args.provider, model=args.model, operation="speech-synthesis",
         input_summary=args.text, output_summary=f"audio written to {args.output}",
         metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
+        pricing=option.get("pricing"),
     )
     print(f"speech written: {args.output} ({mime})")
     print(f"session: {session_id}")
@@ -420,11 +429,18 @@ def run_image_analysis(args: argparse.Namespace) -> int:
     from .multimodal import analyze_image
 
     option, credential = _select_capability_task(args)
-    result = analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
+    if option["adapter_type"] == "gemini-api":
+        result = analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
+        usage = {}
+    else:
+        from .multimodal import analyze_image_openai_compatible
+        result, usage = analyze_image_openai_compatible(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
     from .task_journal import record_task
     session_id = record_task(
         args.data_root, provider=args.provider, model=args.model, operation="image-analysis",
         input_summary=f"image: {args.input}; prompt: {args.prompt}", output_summary=result,
+        metadata={"usage": usage},
+        pricing=option.get("pricing"),
     )
     print(result)
     print(f"session: {session_id}")
@@ -440,6 +456,7 @@ def run_transcription(args: argparse.Namespace) -> int:
     session_id = record_task(
         args.data_root, provider=args.provider, model=args.model, operation="transcription",
         input_summary=f"audio: {args.input}", output_summary=result,
+        pricing=option.get("pricing"),
     )
     print(result)
     print(f"session: {session_id}")

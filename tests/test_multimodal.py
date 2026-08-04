@@ -3,7 +3,9 @@ from pathlib import Path
 
 from most.multimodal import (
     analyze_image,
+    analyze_image_openai_compatible,
     embed,
+    embed_openai_compatible,
     generate_image,
     synthesize_speech,
     transcribe_audio,
@@ -72,3 +74,22 @@ def test_transcription_posts_audio_as_multipart(tmp_path: Path, monkeypatch):
     assert b"whisper-1" in captured["request"].data
     assert b"wav" in captured["request"].data
     assert captured["request"].headers["Authorization"] == "Bearer secret"
+
+
+def test_openai_compatible_embedding_and_image_analysis():
+    def transport(url, headers, payload):
+        if url.endswith("/embeddings"):
+            return HTTPResponse(200, {"data": [{"embedding": [0.1, 0.2]}], "usage": {"prompt_tokens": 2}})
+        return HTTPResponse(200, {"choices": [{"message": {"content": "looks good"}}], "usage": {"prompt_tokens": 3, "completion_tokens": 2}})
+
+    vector, embedding_usage = embed_openai_compatible(transport, "http://localhost/v1", "embedding", None, "hello")
+    assert vector == [0.1, 0.2]
+    assert embedding_usage["prompt_tokens"] == 2
+    image_path = Path("/tmp/most-test-image.png")
+    image_path.write_bytes(b"png")
+    try:
+        result, image_usage = analyze_image_openai_compatible(transport, "http://localhost/v1", "vision", None, image_path, "describe")
+    finally:
+        image_path.unlink(missing_ok=True)
+    assert result == "looks good"
+    assert image_usage["completion_tokens"] == 2

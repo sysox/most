@@ -223,6 +223,12 @@ providers:
     - transcription
     input_modalities: [audio]
     output_modalities: [text]
+  - id: text-embedding-3-small
+    status: available
+    capabilities:
+    - embedding
+    input_modalities: [text]
+    output_modalities: [embedding]
 - id: google
   name: Google Gemini / Antigravity
   kind: cloud

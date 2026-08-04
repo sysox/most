@@ -1,6 +1,13 @@
 from pathlib import Path
 
-from most.task_journal import record_task
+from most.task_journal import estimate_cost, record_task
+
+
+def test_estimate_cost_uses_catalog_rates():
+    assert estimate_cost(
+        {"prompt_tokens": 1000, "completion_tokens": 500},
+        {"per_1m_tokens": {"input": 2, "output": 10}},
+    ) == 0.007
 
 
 def test_one_shot_task_is_journaled(tmp_path: Path):
