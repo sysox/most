@@ -1,7 +1,13 @@
 import base64
 from pathlib import Path
 
-from most.multimodal import analyze_image, embed, generate_image, synthesize_speech
+from most.multimodal import (
+    analyze_image,
+    embed,
+    generate_image,
+    synthesize_speech,
+    transcribe_audio,
+)
 from most.openai_compatible import HTTPResponse
 
 
@@ -36,3 +42,33 @@ def test_image_analysis_sends_file_as_inline_data(tmp_path: Path):
     part = calls[0]["contents"][0]["parts"][1]["inlineData"]
     assert part["mimeType"] == "image/png"
     assert part["data"] == base64.b64encode(b"png").decode()
+
+
+def test_transcription_posts_audio_as_multipart(tmp_path: Path, monkeypatch):
+    audio_path = tmp_path / "recording.wav"
+    audio_path.write_bytes(b"wav")
+    captured = {}
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b'{"text":"transcribed"}'
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr("most.multimodal.urlopen", fake_urlopen)
+    assert transcribe_audio("https://api.openai.com/v1", "whisper-1", "secret", audio_path) == "transcribed"
+    assert captured["request"].full_url.endswith("/audio/transcriptions")
+    assert b"whisper-1" in captured["request"].data
+    assert b"wav" in captured["request"].data
+    assert captured["request"].headers["Authorization"] == "Bearer secret"

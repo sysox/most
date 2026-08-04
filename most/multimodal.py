@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from .openai_compatible import HTTPResponse
 
@@ -56,6 +59,39 @@ def analyze_image(transport: Transport, base_url: str, model: str, credential: s
     )
     if not text:
         raise RuntimeError("Gemini image-analysis response did not contain text")
+    return text
+
+
+def transcribe_audio(base_url: str, model: str, credential: str | None, audio_path: Path) -> str:
+    boundary = "most-" + uuid.uuid4().hex
+    data = audio_path.read_bytes()
+    filename = audio_path.name
+    mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    parts = [
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n{model}\r\n".encode(),
+        (
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"
+            f"Content-Type: {mime}\r\n\r\n"
+        ).encode() + data + b"\r\n",
+        f"--{boundary}--\r\n".encode(),
+    ]
+    headers = {"content-type": f"multipart/form-data; boundary={boundary}"}
+    if credential:
+        headers["authorization"] = f"Bearer {credential}"
+    request = Request(base_url.rstrip("/") + "/audio/transcriptions", data=b"".join(parts), headers=headers, method="POST")
+    try:
+        with urlopen(request, timeout=60) as response:
+            body = response.read().decode("utf-8")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"transcription returned HTTP {exc.code}: {detail}") from exc
+    except URLError as exc:
+        raise ConnectionError(f"transcription connection failed: {exc.reason}") from exc
+    import json
+    parsed = json.loads(body)
+    text = parsed.get("text") if isinstance(parsed, dict) else None
+    if not isinstance(text, str):
+        raise TypeError("transcription response did not contain text")
     return text
 
 

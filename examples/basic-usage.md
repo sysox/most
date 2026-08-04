@@ -91,6 +91,16 @@ uv run python -m most ai-speech \
 This is text-to-speech. Whisper has the opposite direction: audio input and
 text output.
 
+For OpenAI Whisper transcription:
+
+```bash
+uv run python -m most ai-transcribe \
+  --provider openai --model whisper-1 \
+  --input recording.wav
+```
+
+The transcription is printed and recorded in the session journal.
+
 ## 8. Analyze an image
 
 ```bash

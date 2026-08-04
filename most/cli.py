@@ -96,6 +96,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_capability_task_args(image_analysis, "chat", input_modality="image")
     image_analysis.add_argument("--input", type=Path, required=True, help="image file to analyze")
     image_analysis.add_argument("prompt", nargs="?", default="Describe this image.")
+    transcription = subparsers.add_parser("ai-transcribe", help="transcribe audio to text")
+    _add_capability_task_args(transcription, "transcription", input_modality="audio", output_modality="text")
+    transcription.set_defaults(require_credential=False)
+    transcription.add_argument("--input", type=Path, required=True, help="audio file to transcribe")
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
     catalog_refresh = subparsers.add_parser("catalog-refresh", help="refresh dynamic model inventory and route status")
     catalog_refresh.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
@@ -245,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_speech(args)
     if args.command == "ai-image-analyze":
         return run_image_analysis(args)
+    if args.command == "ai-transcribe":
+        return run_transcription(args)
     if args.command == "browser-chat":
         if args.manual:
             from .manual_browser_chat import run_manual_browser_chat
@@ -341,10 +347,10 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
         required_input_modality=args.required_input_modality,
         required_output_modality=args.required_output_modality,
     )
-    if option["adapter_type"] != "gemini-api":
-        raise SystemExit("non-text API tasks currently support the Google Gemini API route")
+    if args.required_capability != "transcription" and option["adapter_type"] != "gemini-api":
+        raise SystemExit("this non-text task currently supports the Google Gemini API route")
     credential = resolve_provider_credential(args.provider, option["credential_env"])
-    if not credential:
+    if not credential and getattr(args, "require_credential", True):
         raise SystemExit(f"missing {args.provider} API key; store it with credentials set or provide the environment variable")
     return option, credential
 
@@ -358,11 +364,18 @@ def run_embedding(args: argparse.Namespace) -> int:
     option, credential = _select_capability_task(args)
     vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
     serialized = json.dumps({"model": args.model, "dimensions": len(vector), "values": vector}, indent=2)
+    from .task_journal import record_task
+    session_id = record_task(
+        args.data_root, provider=args.provider, model=args.model, operation="embedding",
+        input_summary=f"text file: {args.input}", output_summary=f"embedding with {len(vector)} dimensions",
+        metadata={"dimensions": len(vector), "output": str(args.output) if args.output else None},
+    )
     if args.output:
         args.output.write_text(serialized + "\n", encoding="utf-8")
         print(f"embedding written: {args.output} ({len(vector)} dimensions)")
     else:
         print(serialized)
+    print(f"session: {session_id}")
     return 0
 
 
@@ -373,7 +386,14 @@ def run_image_generation(args: argparse.Namespace) -> int:
     option, credential = _select_capability_task(args)
     data, mime = generate_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.prompt)
     args.output.write_bytes(data)
+    from .task_journal import record_task
+    session_id = record_task(
+        args.data_root, provider=args.provider, model=args.model, operation="image-generation",
+        input_summary=args.prompt, output_summary=f"image written to {args.output}",
+        metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
+    )
     print(f"image written: {args.output} ({mime})")
+    print(f"session: {session_id}")
     return 0
 
 
@@ -384,7 +404,14 @@ def run_speech(args: argparse.Namespace) -> int:
     option, credential = _select_capability_task(args)
     data, mime = synthesize_speech(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.text)
     args.output.write_bytes(data)
+    from .task_journal import record_task
+    session_id = record_task(
+        args.data_root, provider=args.provider, model=args.model, operation="speech-synthesis",
+        input_summary=args.text, output_summary=f"audio written to {args.output}",
+        metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
+    )
     print(f"speech written: {args.output} ({mime})")
+    print(f"session: {session_id}")
     return 0
 
 
@@ -393,7 +420,29 @@ def run_image_analysis(args: argparse.Namespace) -> int:
     from .multimodal import analyze_image
 
     option, credential = _select_capability_task(args)
-    print(analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt))
+    result = analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
+    from .task_journal import record_task
+    session_id = record_task(
+        args.data_root, provider=args.provider, model=args.model, operation="image-analysis",
+        input_summary=f"image: {args.input}; prompt: {args.prompt}", output_summary=result,
+    )
+    print(result)
+    print(f"session: {session_id}")
+    return 0
+
+
+def run_transcription(args: argparse.Namespace) -> int:
+    from .multimodal import transcribe_audio
+    from .task_journal import record_task
+
+    option, credential = _select_capability_task(args)
+    result = transcribe_audio(str(option["endpoint"]), args.model, credential, args.input)
+    session_id = record_task(
+        args.data_root, provider=args.provider, model=args.model, operation="transcription",
+        input_summary=f"audio: {args.input}", output_summary=result,
+    )
+    print(result)
+    print(f"session: {session_id}")
     return 0
 
 

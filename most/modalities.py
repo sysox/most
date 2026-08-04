@@ -14,7 +14,7 @@ def infer_modalities(provider_id: str, model_id: str, capabilities: list[str] | 
         return ["text"], ["ranking"]
     if any(marker in name for marker in ("tts", "text-to-speech")):
         return ["text"], ["audio"]
-    if "speech" in caps or any(marker in name for marker in ("whisper", "transcri", "stt")):
+    if "transcription" in caps or "speech-to-text" in caps or any(marker in name for marker in ("whisper", "transcri", "stt")):
         return ["audio"], ["text"]
     if "image" in caps or "image" in name:
         return ["text"], ["image"]

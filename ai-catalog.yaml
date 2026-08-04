@@ -217,6 +217,12 @@ providers:
       source:
         url: https://developers.openai.com/api/docs/pricing
         checked_at: 2026-08-04
+  - id: whisper-1
+    status: available
+    capabilities:
+    - transcription
+    input_modalities: [audio]
+    output_modalities: [text]
 - id: google
   name: Google Gemini / Antigravity
   kind: cloud
