@@ -362,6 +362,8 @@ def run_embedding(args: argparse.Namespace) -> int:
     from .http_transport import urllib_json_transport
     from .multimodal import embed
 
+    if not args.input.is_file():
+        raise SystemExit(f"input text file not found: {args.input}")
     option, credential = _select_capability_task(args)
     if option["adapter_type"] == "gemini-api":
         vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
@@ -428,6 +430,8 @@ def run_image_analysis(args: argparse.Namespace) -> int:
     from .http_transport import urllib_json_transport
     from .multimodal import analyze_image
 
+    if not args.input.is_file():
+        raise SystemExit(f"input image file not found: {args.input}")
     option, credential = _select_capability_task(args)
     if option["adapter_type"] == "gemini-api":
         result = analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
@@ -451,6 +455,8 @@ def run_transcription(args: argparse.Namespace) -> int:
     from .multimodal import transcribe_audio
     from .task_journal import record_task
 
+    if not args.input.is_file():
+        raise SystemExit(f"input audio file not found: {args.input}")
     option, credential = _select_capability_task(args)
     result = transcribe_audio(str(option["endpoint"]), args.model, credential, args.input)
     session_id = record_task(
