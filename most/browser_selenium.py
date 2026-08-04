@@ -83,6 +83,16 @@ class SeleniumFirefoxDriver:
 
         WebDriverWait(self.driver, 60).until(lambda _: any(element.text.strip() for element in self._elements(selector)))
 
+    def wait_for_element(self, selector: str, timeout: float = 10) -> bool:
+        from selenium.common.exceptions import WebDriverException
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        try:
+            WebDriverWait(self.driver, timeout).until(lambda _: bool(self._elements(selector)))
+        except WebDriverException:
+            return False
+        return True
+
     def screenshot(self) -> str | None:
         return None
 

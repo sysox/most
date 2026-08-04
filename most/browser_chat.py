@@ -78,9 +78,13 @@ def run_browser_chat(args: Namespace) -> int:
     driver = SeleniumFirefoxDriver(profile, headless=args.headless)
     try:
         driver.open(URLS[args.provider])
-        print("Log in manually if needed, then press Enter here.")
-        print("Do not bypass CAPTCHA, consent, or other site safety controls.")
-        input()
+        input_selector = SELECTOR_PACKS[args.provider].selectors["input"]
+        if not driver.wait_for_element(input_selector, timeout=8):
+            print("Log in manually if needed, then press Enter here.")
+            print("Do not bypass CAPTCHA, consent, or other site safety controls.")
+            input()
+            if not driver.wait_for_element(input_selector, timeout=60):
+                raise RuntimeError("browser login was not detected; confirm the provider page is ready and try again")
         sessions = SessionService(args.data_root)
         session = sessions.create(args.title)
         configuration = AIConfiguration(
