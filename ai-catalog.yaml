@@ -94,6 +94,9 @@ providers:
         model_argument: --model
       - id: api
         endpoint: https://api.anthropic.com
+        model_discovery:
+          method: GET
+          endpoint: https://api.anthropic.com/v1/models
     pricing:
       billing_model: usage
       per_1m_tokens: null
@@ -124,6 +127,9 @@ providers:
         model_argument: --model
       - id: api
         endpoint: https://api.openai.com/v1
+        model_discovery:
+          method: GET
+          endpoint: https://api.openai.com/v1/models
     pricing:
       billing_model: usage-or-subscription
       per_1m_tokens: null
@@ -139,6 +145,9 @@ providers:
       - id: cli
         executable: agy
         model_argument: --model
+        model_discovery:
+          method: CLI
+          command: agy models
     pricing:
       billing_model: subscription-or-api
       per_1m_tokens: null
