@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import os
 from pathlib import Path
 
 from .adapters import create_default_registry
@@ -92,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     credential_commands = credentials.add_subparsers(dest="credential_command", required=True)
     credential_set = credential_commands.add_parser("set", help="store or replace a provider API key")
     credential_set.add_argument("provider")
+    credential_set.add_argument(
+        "--from-env",
+        action="store_true",
+        help="copy the provider key from its standard environment variable",
+    )
     credential_remove = credential_commands.add_parser("remove", help="remove a provider API key")
     credential_remove.add_argument("provider")
     credential_commands.add_parser("list", help="list supported provider credential names")
@@ -169,7 +175,20 @@ def main(argv: list[str] | None = None) -> int:
         from .credentials import CredentialReference, KeyringCredentialStore
         store = KeyringCredentialStore()
         if args.credential_command == "set":
-            value = getpass.getpass(f"{args.provider} API key: ")
+            if args.from_env:
+                env_name = {
+                    "openai": "OPENAI_API_KEY",
+                    "einfra": "EINFRA_API_KEY",
+                    "anthropic": "ANTHROPIC_API_KEY",
+                    "google": "GOOGLE_API_KEY",
+                }.get(args.provider)
+                if env_name is None:
+                    raise SystemExit(f"unsupported provider: {args.provider}")
+                value = os.environ.get(env_name)
+                if not value:
+                    raise SystemExit(f"missing environment variable: {env_name}")
+            else:
+                value = getpass.getpass(f"{args.provider} API key: ")
             store.create(args.provider, value, args.provider)
             print(f"stored credential: {args.provider}")
         elif args.credential_command == "remove":

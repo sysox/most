@@ -162,6 +162,12 @@ uv run python -m most credentials set einfra
 uv run python -m most credentials list
 ```
 
+If a key is already exported, copy it without displaying it:
+
+```bash
+uv run python -m most credentials set openai --from-env
+```
+
 MOST uses environment variables first and the keyring second. `keyring` maps to
 Secret Service on Linux, Keychain on macOS, and Credential Locker on Windows.
 Remove a stored key with `most credentials remove <provider>`.
