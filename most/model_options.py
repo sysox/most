@@ -76,10 +76,12 @@ def select_model(options: list[dict[str, Any]], provider_id: str | None, model_i
             raise ValueError(f"route {route!r} is not configured for {model_id}")
     ranked = sorted(matches, key=_route_rank)
     selected = dict(ranked[0])
-    if selected["access_method"] == "api" and selected["provider_id"] != "openai":
-        raise ValueError(f"native API route is not implemented for {selected['provider_id']}")
     if selected["access_method"] == "api" and selected["provider_id"] == "openai":
         selected["adapter_type"] = "openai-api"
+    elif selected["access_method"] == "api" and selected["provider_id"] == "anthropic":
+        selected["adapter_type"] = "anthropic-api"
+    elif selected["access_method"] == "api" and selected["provider_id"] == "google":
+        selected["adapter_type"] = "gemini-api"
     elif selected["access_method"] in {"api", "openai-compatible"}:
         selected["adapter_type"] = "openai-compatible"
     elif selected["access_method"] == "cli":
@@ -116,7 +118,7 @@ def _route_rank(option: dict[str, Any]) -> tuple[int, int]:
     method = option["access_method"]
     if method == "openai-compatible":
         return (0, 0)
-    if method == "api" and option["provider_id"] == "openai" and option["credential_available"]:
+    if method == "api" and option["credential_available"]:
         return (1, 0)
     if method == "cli" and option["executable_available"]:
         return (2, 0)

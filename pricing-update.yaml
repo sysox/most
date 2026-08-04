@@ -1,11 +1,51 @@
 # Reviewed pricing snapshot. Add new entries only from official provider sources.
 prices:
-  - provider_id: openai
-    model_id: gpt-5.6-sol
-    per_1m_tokens:
-      input: 5
-      output: 30
-      cached_input: 0.5
-    source:
-      url: https://developers.openai.com/api/docs/pricing
-      checked_at: 2026-08-04
+- provider_id: openai
+  model_id: gpt-5.6-sol
+  per_1m_tokens:
+    input: 5
+    output: 30
+    cached_input: 0.5
+  source:
+    url: https://developers.openai.com/api/docs/pricing
+    checked_at: 2026-08-04
+- provider_id: anthropic
+  model_id: claude-opus-5
+  per_1m_tokens:
+    input: 5
+    output: 25
+  source:
+    url: https://www.anthropic.com/pricing
+    checked_at: 2026-08-04
+- provider_id: anthropic
+  model_id: claude-sonnet-5
+  per_1m_tokens:
+    input: 2
+    output: 10
+  source:
+    url: https://www.anthropic.com/pricing
+    checked_at: 2026-08-04
+- provider_id: anthropic
+  model_id: claude-haiku-4-5-20251001
+  per_1m_tokens:
+    input: 1
+    output: 5
+  source:
+    url: https://www.anthropic.com/pricing
+    checked_at: 2026-08-04
+- provider_id: google
+  model_id: gemini-3.1-pro-preview
+  per_1m_tokens:
+    input: 2
+    output: 12
+  source:
+    url: https://ai.google.dev/gemini-api/docs/pricing
+    checked_at: 2026-08-04
+- provider_id: google
+  model_id: gemini-3.5-flash
+  per_1m_tokens:
+    input: 1.5
+    output: 9
+  source:
+    url: https://ai.google.dev/gemini-api/docs/pricing
+    checked_at: 2026-08-04

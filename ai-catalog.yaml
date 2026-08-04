@@ -109,26 +109,47 @@ providers:
       checked_at: 2026-08-04
       note: Verify current model and tier pricing before updating values.
   models:
-  - id: claude-opus
+  - id: claude-opus-5
     status: available
     cost_tier: high
     capabilities:
     - chat
     - reasoning
     - coding
-  - id: claude-sonnet
+    pricing:
+      per_1m_tokens:
+        input: 5
+        output: 25
+      source:
+        url: https://www.anthropic.com/pricing
+        checked_at: 2026-08-04
+  - id: claude-sonnet-5
     status: available
     cost_tier: medium
     capabilities:
     - chat
     - reasoning
     - coding
-  - id: claude-haiku
+    pricing:
+      per_1m_tokens:
+        input: 2
+        output: 10
+      source:
+        url: https://www.anthropic.com/pricing
+        checked_at: 2026-08-04
+  - id: claude-haiku-4-5-20251001
     status: available
     cost_tier: low
     capabilities:
     - chat
     - coding
+    pricing:
+      per_1m_tokens:
+        input: 1
+        output: 5
+      source:
+        url: https://www.anthropic.com/pricing
+        checked_at: 2026-08-04
 - id: openai
   name: OpenAI / Codex
   kind: cloud
@@ -193,6 +214,34 @@ providers:
     source:
       url: https://ai.google.dev/gemini-api/docs/pricing
       checked_at: 2026-08-04
-  models: []
+  models:
+  - id: gemini-3.1-pro-preview
+    status: available
+    cost_tier: high
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+    pricing:
+      per_1m_tokens:
+        input: 2
+        output: 12
+      source:
+        url: https://ai.google.dev/gemini-api/docs/pricing
+        checked_at: 2026-08-04
+  - id: gemini-3.5-flash
+    status: available
+    cost_tier: medium
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+    pricing:
+      per_1m_tokens:
+        input: 1.5
+        output: 9
+      source:
+        url: https://ai.google.dev/gemini-api/docs/pricing
+        checked_at: 2026-08-04
 last_audited: '2026-08-04'
 pricing_last_updated: '2026-08-04'

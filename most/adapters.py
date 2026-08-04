@@ -103,9 +103,11 @@ class AdapterRegistry:
 
 
 def create_default_registry() -> AdapterRegistry:
+    from .anthropic_api import AnthropicAPIAdapter
     from .browser import BrowserAdapter, IsolatedBrowserProfileService
     from .cli_adapter import CLIAdapter
     from .cloud_adapter import CloudAPIAdapter
+    from .gemini_api import GeminiAPIAdapter
     from .http_transport import urllib_json_transport
     from .openai_api import OpenAIAPIAdapter
     from .openai_compatible import OpenAICompatibleAdapter
@@ -115,6 +117,8 @@ def create_default_registry() -> AdapterRegistry:
     registry.register("openai-compatible", OpenAICompatibleAdapter(urllib_json_transport))
     registry.register("official-cloud-api", CloudAPIAdapter(urllib_json_transport))
     registry.register("openai-api", OpenAIAPIAdapter(urllib_json_transport))
+    registry.register("anthropic-api", AnthropicAPIAdapter(urllib_json_transport))
+    registry.register("gemini-api", GeminiAPIAdapter(urllib_json_transport))
     # Browser execution remains conservative until a selector pack and driver are supplied.
     registry.register("browser", BrowserAdapter(IsolatedBrowserProfileService(managed_browser_profile_root())))
     registry.register("cli", CLIAdapter())

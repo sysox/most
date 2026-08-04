@@ -253,6 +253,21 @@ def run_unified_chat(args: argparse.Namespace) -> int:
             data_root=args.data_root, prompt=args.prompt, model=args.model,
             api_key_env=option["credential_env"] or "OPENAI_API_KEY", base_url="https://api.openai.com/v1", title=args.title,
         ))
+    if adapter_type in {"anthropic-api", "gemini-api"}:
+        from .anthropic_api import normalize_response as normalize_anthropic_response
+        from .gemini_api import normalize_response as normalize_gemini_response
+        from .native_chat import run_native_chat
+        provider = option["provider_id"]
+        return run_native_chat(
+            argparse.Namespace(
+                data_root=args.data_root, prompt=args.prompt, model=args.model,
+                api_key_env=option["credential_env"], title=args.title,
+            ),
+            provider=provider,
+            adapter_type=adapter_type,
+            base_url=option["endpoint"],
+            normalize=normalize_anthropic_response if provider == "anthropic" else normalize_gemini_response,
+        )
     if adapter_type == "openai-compatible":
         if option["provider_id"] == "einfra":
             return run_cerit_chat(argparse.Namespace(

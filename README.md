@@ -172,6 +172,16 @@ MOST uses environment variables first and the keyring second. `keyring` maps to
 Secret Service on Linux, Keychain on macOS, and Credential Locker on Windows.
 Remove a stored key with `most credentials remove <provider>`.
 
+The unified API chat supports OpenAI, CERIT/e-INFRA, Anthropic, and Gemini:
+
+```bash
+uv run python -m most ai-chat --provider anthropic --model claude-sonnet-5 --route api "Hello"
+uv run python -m most ai-chat --provider google --model gemini-3.5-flash --route api "Hello"
+```
+
+Use `--route cli` for subscription-backed local clients such as `claude` or
+`agy`. Use `catalog-audit --show-models` to refresh the live model inventory.
+
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
 requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.
