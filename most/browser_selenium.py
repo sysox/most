@@ -59,6 +59,7 @@ class SeleniumFirefoxDriver:
         self.driver.get(url)
 
     def click(self, selector: str) -> None:
+        self.wait_for_element(selector, timeout=10)
         self._element(selector).click()
 
     def type_text(self, selector: str, value: str) -> None:
