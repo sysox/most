@@ -96,7 +96,7 @@ For OpenAI Whisper transcription:
 ```bash
 uv run python -m most ai-transcribe \
   --provider openai --model whisper-1 \
-  --input recording.wav
+  --input examples/media/sample-speech.wav
 ```
 
 The transcription is printed and recorded in the session journal.
@@ -119,7 +119,7 @@ catalog pricing metadata when both are available.
 ```bash
 uv run python -m most ai-image-analyze \
   --provider google --model gemini-3.5-flash \
-  --input path/to/small-image.png \
+  --input examples/media/sample-public-domain.jpg \
   "Describe the important objects and colors."
 ```
 
