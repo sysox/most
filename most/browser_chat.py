@@ -41,6 +41,10 @@ URLS = {
     "cerit": "https://chat.ai.e-infra.cz/",
 }
 
+LOGIN_SELECTORS = {
+    "gemini": "button[aria-label='Sign in']",
+}
+
 
 class BrowserSessionAdapter:
     adapter_type = "browser"
@@ -79,10 +83,14 @@ def run_browser_chat(args: Namespace) -> int:
     try:
         driver.open(URLS[args.provider])
         input_selector = SELECTOR_PACKS[args.provider].selectors["input"]
-        if not driver.wait_for_element(input_selector, timeout=8):
+        login_selector = LOGIN_SELECTORS.get(args.provider)
+        login_required = bool(login_selector and driver.wait_for_element(login_selector, timeout=5))
+        if login_required or not driver.wait_for_element(input_selector, timeout=8):
             print("Log in manually if needed, then press Enter here.")
             print("Do not bypass CAPTCHA, consent, or other site safety controls.")
             input()
+            if login_selector and driver.wait_for_element(login_selector, timeout=3):
+                raise RuntimeError("Gemini still shows Sign in; complete login in Firefox and try again")
             if not driver.wait_for_element(input_selector, timeout=60):
                 raise RuntimeError("browser login was not detected; confirm the provider page is ready and try again")
         sessions = SessionService(args.data_root)

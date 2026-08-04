@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from most.browser import BrowserProfileIsolationError, IsolatedBrowserProfileService
-from most.browser_chat import SELECTOR_PACKS
+from most.browser_chat import LOGIN_SELECTORS, SELECTOR_PACKS
 from most.browser_selenium import _firefox_binary
 from most.cli import build_parser
 
@@ -32,6 +32,7 @@ def test_browser_chat_parser_requires_supported_provider():
     assert args.provider == "gemini"
     assert args.prompt == "hello"
     assert SELECTOR_PACKS["gemini"].selectors["input"] == "rich-textarea .ql-editor"
+    assert LOGIN_SELECTORS["gemini"] == "button[aria-label='Sign in']"
 
 
 def test_browser_chat_parser_supports_manual_relay():

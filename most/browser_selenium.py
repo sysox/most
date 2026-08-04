@@ -89,7 +89,9 @@ class SeleniumFirefoxDriver:
         from selenium.webdriver.support.ui import WebDriverWait
 
         try:
-            WebDriverWait(self.driver, timeout).until(lambda _: bool(self._elements(selector)))
+            WebDriverWait(self.driver, timeout).until(
+                lambda _: any(element.is_displayed() for element in self._elements(selector))
+            )
         except WebDriverException:
             return False
         return True
