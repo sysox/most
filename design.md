@@ -2648,58 +2648,61 @@ The file and Git history can remain as exports and reproducibility artifacts.
 
 ---
 
-## 30. Pre-Build Implementation Checklist
+## 30. Implementation Status Checklist
 
-The MVP implementation may begin when each item has an explicit decision, test, or stub with conservative behavior.
+The MVP implementation is present in `most/` and covered by the test suite. The
+following checklist records the current implementation status; unresolved
+items are intentionally retained as follow-up work.
 
 ### Domain and serialization
 
-- [ ] Define canonical enums and nullable fields.
-- [ ] Implement `PersistedRecordHeader` on every YAML, JSON, and JSONL record.
-- [ ] Implement tolerant readers and strict writers.
-- [ ] Validate all cross-record references.
-- [ ] Use UTC timestamps and stable IDs consistently.
+- [x] Define canonical enums and nullable fields.
+- [x] Implement `PersistedRecordHeader` on every authoritative YAML, JSON, and JSONL record.
+- [x] Implement tolerant readers and strict writers.
+- [x] Validate all cross-record references.
+- [x] Use UTC timestamps and stable IDs consistently.
 
 ### Adapter boundary
 
-- [ ] Implement `AdapterExecutionContext`.
-- [ ] Confirm each adapter's observability profile.
-- [ ] Ensure adapters cannot write journals or resolve secrets independently.
-- [ ] Implement connectivity resolution with explicit confidence.
-- [ ] Implement cancellation reports and complete subprocess-tree termination.
+- [x] Implement `AdapterExecutionContext`.
+- [x] Confirm each adapter's observability profile.
+- [x] Ensure adapters cannot write journals or resolve secrets independently.
+- [x] Implement connectivity resolution with explicit confidence.
+- [x] Implement cancellation reports and complete subprocess-tree termination.
 
 ### Context and privacy
 
-- [ ] Record every context-assembly decision.
-- [ ] Enforce shared token budgets.
-- [ ] Default workspace context to explicit selection.
-- [ ] Resolve exposure and overflow policies using documented precedence.
-- [ ] Block transmission until exposure checks complete.
+- [x] Record every context-assembly decision.
+- [x] Enforce shared token budgets.
+- [x] Default workspace context to explicit selection.
+- [x] Resolve exposure and overflow policies using documented precedence.
+- [x] Block transmission until exposure checks complete.
 
 ### Persistence and recovery
 
-- [ ] Implement one `PersistenceCoordinator` writer.
-- [ ] Use atomic replacement for snapshots and append-only JSONL for events.
-- [ ] Implement stale data-root and workspace lease recovery.
-- [ ] Verify Windows sharing, retry, and antivirus-lock behavior.
-- [ ] Rebuild indexes entirely from authoritative files.
+- [x] Implement one `PersistenceCoordinator` writer.
+- [x] Use atomic replacement for snapshots and append-only JSONL for events.
+- [x] Implement stale data-root and workspace lease recovery.
+- [x] Verify Windows sharing, retry, and antivirus-lock behavior.
+- [x] Rebuild indexes entirely from authoritative files.
 
 ### Workspace and Git
 
-- [ ] Detect dirty state, submodules, LFS, and path constraints.
-- [ ] Implement the isolation fallback chain.
-- [ ] Acquire one active-writer workspace lease.
-- [ ] Detect divergence before patching and committing.
-- [ ] Link each checkpoint bidirectionally with its AI execution.
-- [ ] Require confirmation for merge, squash, history rewrite, or destructive recovery.
+- [x] Detect dirty state and apply the configured workspace policies.
+- [x] Implement the isolation fallback chain.
+- [x] Acquire one active-writer workspace lease.
+- [x] Detect divergence before patching and committing.
+- [x] Link each checkpoint bidirectionally with its AI execution.
+- [x] Require confirmation for merge, squash, history rewrite, or destructive recovery.
+- [ ] Add full submodule, Git LFS, and Windows path-limit handling.
 
 ### Security
 
-- [ ] Store credentials only through native or encrypted secret stores.
-- [ ] Reject browser-profile paths overlapping repositories or journals.
-- [ ] Redact secrets before persistence and export.
-- [ ] Treat unknown connectivity as unsafe.
-- [ ] Verify that sensitive logging can be disabled without breaking execution.
+- [x] Store credentials only through native or encrypted secret stores.
+- [x] Reject browser-profile paths overlapping repositories or journals.
+- [x] Redact secrets before persistence and export.
+- [x] Treat unknown connectivity as unsafe.
+- [x] Verify that sensitive logging can be disabled without breaking execution.
 
 ---
 

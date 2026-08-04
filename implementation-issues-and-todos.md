@@ -42,7 +42,7 @@
 - [x] Implement `AdapterExecutionContext` and enforce immutable execution snapshots (§12.1).
 - [x] Implement `AdapterRegistry` and adapter validation, connection testing, capabilities, observability, execution, streaming, and cancellation (§12, §14.2).
 - [x] Implement the OpenAI-compatible adapter required by the MVP (§25).
-- [x] Implement one official cloud API adapter required by the MVP (§25).
+- [x] Implement official cloud API adapters for OpenAI, Anthropic, and Google Gemini (§25).
 - [x] Implement the generic CLI adapter with redacted command capture and conservative observability (§13.1).
 - [x] Implement the browser adapter with versioned selector packs, failure diagnostics, bounded recovery, and explicit pauses (§13.2).
 - [x] Implement native or encrypted secret stores and ensure secrets never enter YAML, JSON, JSONL, Markdown, logs, or Git (§7.6, §23).
@@ -92,6 +92,8 @@
 - [x] Add fake-adapter tests for all observability profiles without fabricating hidden activity.
 - [x] Add artifact hashing and deduplication tests.
 - [x] Add cross-platform CI for macOS, Linux, and Windows (§1, §6, §31).
+- [x] Add live provider smoke testing and failure-triggered health checks with replacement suggestions.
+- [x] Add capability-specific multimodal commands for embeddings, images, speech, and transcription.
 - [x] Define and document the final test, lint, type-check, build, and packaging commands after the technology stack is selected.
 
 ## Suggested Validation Commands After Tooling Exists

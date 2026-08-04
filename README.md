@@ -35,6 +35,12 @@ uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 See [ai-map.md](ai-map.md) for the current provider inventory, recommended
 task routing, privacy boundaries, and example commands.
 
+Current interface scope is the command-line application, provider CLI
+wrappers, APIs, and MOST-managed browser sessions. MOST does not passively
+capture conversations from an already-open desktop app or ordinary browser
+tab; use an explicit MOST route or manual relay when a conversation must be
+journaled.
+
 The versioned [AI provider catalog](ai-catalog.yaml) is the structured source
 for provider routes, model aliases, availability, pricing metadata, and the
 official pages used to refresh it. Exact cloud prices and live e-INFRA model

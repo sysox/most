@@ -194,7 +194,44 @@ If headless mode says a command permission is required, configure a narrow
 allow rule in an interactive `agy --sandbox` session. Do not use
 `--dangerously-skip-permissions` as a routine workaround.
 
-## 6. CERIT-SC / e-INFRA CZ setup
+## 6. API credentials and unified routes
+
+API routes are separate from subscription-backed CLI logins. Store API keys in
+the operating-system keyring:
+
+```bash
+uv run python -m most credentials set openai
+uv run python -m most credentials set anthropic
+uv run python -m most credentials set google
+uv run python -m most credentials set einfra
+uv run python -m most credentials list
+```
+
+The standard environment variables are `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, and `CERIT_API_KEY`. If one is already
+exported, copy it into the keyring without printing it:
+
+```bash
+uv run python -m most credentials set openai --from-env
+uv run python -m most credentials set anthropic --from-env
+uv run python -m most credentials set google --from-env
+uv run python -m most credentials set einfra --from-env
+```
+
+Test unified API routes with catalog models:
+
+```bash
+uv run python -m most ai-chat --provider openai --model gpt-5.6 "Hello"
+uv run python -m most ai-chat --provider anthropic --model claude-sonnet-5 "Hello"
+uv run python -m most ai-chat --provider google --model gemini-3.5-flash "Hello"
+uv run python -m most ai-chat --provider einfra --model mini "Hello"
+```
+
+Use `--route api` to require an API route, or `--route cli` for a supported
+subscription-backed CLI route. Never place keys in YAML, source files, shell
+scripts, or committed documentation.
+
+## 7. CERIT-SC / e-INFRA CZ setup
 
 CERIT access requires an active MetaCentrum account or an eligible Masaryk
 University account. Start at <https://chat.ai.e-infra.cz/> and complete the
@@ -263,7 +300,7 @@ Use maintained aliases such as `mini`, `coder`, `agentic`, `kimi`, `glm`, and
 `deepseek`. Query the live model list before using an exact model name because
 CERIT may replace exact model versions.
 
-## 7. Open WebUI browser route
+## 8. Open WebUI browser route
 
 For manual browser relay, no Selenium installation is required if the normal
 browser can be opened by the operating system:
@@ -291,13 +328,25 @@ firefox --version
 geckodriver --version
 ```
 
+Use separate named profiles for separate browser accounts:
+
+```bash
+uv run python -m most browser-chat gemini --profile gemini-edu
+uv run python -m most browser-chat gemini --profile gemini-personal
+uv run python -m most browser-chat claude --profile claude-work
+```
+
+Profiles keep cookies between runs, but Firefox still opens for each MOST
+browser session. Login may be required again if cookies expire or the provider
+requests verification.
+
 On Windows, use the Firefox installer and place `geckodriver.exe` on `PATH`.
 On macOS, install Firefox and use a signed `geckodriver` available on `PATH`.
 On Linux, install Firefox and the distribution package or official release of
 `geckodriver`. Manual relay is recommended when a provider blocks WebDriver
 authentication.
 
-## 8. Final verification checklist
+## 9. Final verification checklist
 
 Run these checks on every new machine:
 
@@ -307,6 +356,9 @@ uv run ruff check most tests
 uv run python -m most --help
 uv run python -m most --data-root ./application-data list-sessions
 uv run python -m most --data-root ./application-data list-configurations
+uv run python -m most catalog-refresh --show-models
+uv run python -m most catalog-health
+./scripts/smoke-test-ai.sh
 ```
 
 Then test only the providers that were configured. Confirm that a session ID
@@ -320,7 +372,7 @@ uv run python -m most --data-root ./application-data \
 The local journal is under the selected data root. Never commit it, API keys,
 provider profiles, or copied sensitive conversations.
 
-## 9. Common problems
+## 10. Common problems
 
 - `uv: command not found`: restart the terminal or add uv's install directory
   to `PATH`.

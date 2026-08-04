@@ -11,7 +11,6 @@ uv run python -m most catalog-options --capability chat
 uv run python -m most catalog-options --capability embedding
 uv run python -m most catalog-options --capability image
 uv run python -m most catalog-options --capability speech
-uv run python -m most catalog-health
 ```
 
 Typical input/output mappings are:
@@ -101,6 +100,13 @@ uv run python -m most ai-transcribe \
 ```
 
 The transcription is printed and recorded in the session journal.
+
+Refresh provider inventories and recheck models after a failed unified chat:
+
+```bash
+uv run python -m most catalog-refresh --show-models
+uv run python -m most catalog-health
+```
 
 The same transcription and embedding interfaces can use an OpenAI-compatible
 local or institutional endpoint when the selected catalog model advertises the
