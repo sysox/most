@@ -45,12 +45,16 @@ provider is unavailable or missing credentials:
 MOST_RUN_PROVIDER_INTEGRATION=1 uv run pytest tests/test_all_providers.py
 ```
 
-Test one provider and model instead:
+Test one installed provider instead:
 
 ```bash
-MOST_RUN_PROVIDER_INTEGRATION=1 MOST_PROVIDER=einfra MOST_MODEL=coder \
+MOST_RUN_PROVIDER_INTEGRATION=1 MOST_PROVIDER=claude \
   uv run pytest tests/test_all_providers.py
 ```
+
+The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
+and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
+requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.
 
 The `chat` command uses the local OpenAI-compatible endpoint at
 `http://127.0.0.1:11434/v1` by default, so it works with Ollama without an API

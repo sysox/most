@@ -2,7 +2,7 @@
 
 The tests are intentionally disabled during the normal unit-test run. Enable
 all provider checks with ``MOST_RUN_PROVIDER_INTEGRATION=1`` or select one
-with ``MOST_PROVIDER=ollama|einfra|cloud``. Provider-specific model variables
+with ``MOST_PROVIDER=ollama|einfra|claude|codex|gemini|agy``. Provider-specific model variables
 are documented in ``ai-catalog.yaml`` and ``install.md``.
 """
 
@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 
-from most.cloud_adapter import CloudAPIAdapter
+from most.cli_chat import ProviderCLIAdapter
 from most.http_transport import urllib_json_transport
 from most.openai_compatible import (
     HTTPResponse,
@@ -30,6 +31,7 @@ class Provider:
     adapter: object
     configuration: dict[str, object]
     credential: str | None = None
+    response_kind: str = "http"
 
 
 def _providers() -> list[Provider]:
@@ -60,30 +62,23 @@ def _providers() -> list[Provider]:
             },
             os.environ.get("CERIT_API_KEY"),
         ),
-        Provider(
-            "cloud",
-            CloudAPIAdapter(urllib_json_transport),
-            {
-                "model_reference": selected_model or os.environ.get("MOST_CLOUD_MODEL", "gpt-4o-mini"),
-                "adapter_options": {
-                    "base_url": os.environ.get(
-                        "MOST_CLOUD_BASE_URL", "https://api.openai.com/v1/chat/completions"
-                    ),
-                    "api_key_header": os.environ.get(
-                        "MOST_CLOUD_API_KEY_HEADER", "authorization"
-                    ),
-                }
-            },
-            os.environ.get("MOST_CLOUD_API_KEY") or os.environ.get("OPENAI_API_KEY"),
-        ),
+        *[
+            Provider(
+                provider,
+                ProviderCLIAdapter(provider, Path.cwd()),
+                {"adapter_options": {"executable": provider}},
+                response_kind="cli",
+            )
+            for provider in ("claude", "codex", "gemini", "agy")
+        ],
     ]
 
 
 def _skip_reason(provider: Provider) -> str | None:
     if not os.environ.get("MOST_RUN_PROVIDER_INTEGRATION"):
         return "set MOST_RUN_PROVIDER_INTEGRATION=1 to run provider smoke tests"
-    if provider.name in {"einfra", "cloud"} and not provider.credential:
-        variable = "CERIT_API_KEY" if provider.name == "einfra" else "MOST_CLOUD_API_KEY or OPENAI_API_KEY"
+    if provider.name == "einfra" and not provider.credential:
+        variable = "CERIT_API_KEY"
         return f"missing provider credential ({variable})"
     return None
 
@@ -104,18 +99,19 @@ def test_provider_can_return_assistant_text(provider: Provider):
         pytest.skip(reason)
 
     request = {"messages": [{"role": "user", "content": PROMPT}]}
-    if provider.name == "cloud":
-        request["model"] = provider.configuration["model_reference"]
     try:
         response = provider.adapter.execute(request, provider.configuration, provider.credential)
     except (ConnectionError, OSError, TimeoutError) as exc:
         pytest.fail(f"{provider.name} is unavailable: {exc}")
 
-    assert isinstance(response, HTTPResponse)
-    normalized = normalize_response(response)
-    content = "".join(
-        str(part.get("text", ""))
-        for part in normalized["content_parts"]
-        if isinstance(part, dict)
-    ).strip()
+    if provider.response_kind == "cli":
+        content = str(response["content"]).strip()
+    else:
+        assert isinstance(response, HTTPResponse)
+        normalized = normalize_response(response)
+        content = "".join(
+            str(part.get("text", ""))
+            for part in normalized["content_parts"]
+            if isinstance(part, dict)
+        ).strip()
     assert content, f"{provider.name} returned no assistant text"
