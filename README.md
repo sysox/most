@@ -32,6 +32,12 @@ uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 See [ai-map.md](ai-map.md) for the current provider inventory, recommended
 task routing, privacy boundaries, and example commands.
 
+The versioned [AI provider catalog](ai-catalog.yaml) is the structured source
+for provider routes, model aliases, availability, pricing metadata, and the
+official pages used to refresh it. Exact cloud prices and live e-INFRA model
+availability should be refreshed before cost-sensitive or reproducibility-
+sensitive work.
+
 The `chat` command uses the local OpenAI-compatible endpoint at
 `http://127.0.0.1:11434/v1` by default, so it works with Ollama without an API
 key. Pass one prompt for a single turn or omit the prompt for an interactive
