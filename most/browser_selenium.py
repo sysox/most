@@ -2,8 +2,33 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
+
+
+def _firefox_binary() -> str | None:
+    """Return a real Firefox executable, including Ubuntu's Snap install."""
+    candidates = []
+    configured = os.environ.get("MOST_FIREFOX_BINARY")
+    if configured:
+        candidates.append(Path(configured))
+    detected = shutil.which("firefox")
+    if detected:
+        candidates.append(Path(detected))
+    candidates.append(Path("/snap/firefox/current/usr/lib/firefox/firefox"))
+    for candidate in candidates:
+        if not candidate.is_file() or not (candidate.stat().st_mode & 0o111):
+            continue
+        try:
+            with candidate.open("rb") as executable:
+                is_script = executable.read(2) == b"#!"
+            if is_script:
+                continue
+        except OSError:
+            continue
+        return str(candidate)
+    return None
 
 
 class SeleniumFirefoxDriver:
@@ -16,12 +41,14 @@ class SeleniumFirefoxDriver:
             raise RuntimeError("browser support requires: uv sync --extra browser") from exc
         profile = profile.resolve()
         profile.mkdir(parents=True, exist_ok=True)
-        preferences = profile / "prefs.js"
-        if not preferences.exists():
-            preferences.write_text("", encoding="utf-8")
         options = Options()
-        options.add_argument("-profile")
-        options.add_argument(str(profile))
+        binary = _firefox_binary()
+        if binary:
+            options.binary_location = binary
+        # Let geckodriver package the profile through the WebDriver capability.
+        # Passing ``-profile`` directly makes recent Snap Firefox builds reject
+        # the preferences during session creation.
+        options.profile = str(profile)
         if headless:
             options.add_argument("-headless")
         executable = shutil.which("geckodriver")
