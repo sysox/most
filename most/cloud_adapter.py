@@ -41,5 +41,11 @@ class CloudAPIAdapter:
         if self.transport is None:
             raise RuntimeError("no cloud HTTP transport configured")
         options = configuration["adapter_options"]
-        headers = {"content-type": "application/json", options["api_key_header"]: credential_handle}
+        api_key_header = options["api_key_header"]
+        credential_value = (
+            f"Bearer {credential_handle}"
+            if api_key_header.lower() == "authorization"
+            else credential_handle
+        )
+        headers = {"content-type": "application/json", api_key_header: credential_value}
         return self.transport(options["base_url"], headers, request)
