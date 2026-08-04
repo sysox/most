@@ -16,6 +16,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from .modalities import infer_modalities, model_modalities
+
 
 @dataclass(frozen=True, slots=True)
 class AuditResult:
@@ -272,11 +274,14 @@ def _sync_discovered_models(catalog: dict[str, Any], results: list[AuditResult])
             "speech": "speech",
             "image": "image",
         }.get(model_type, "specialized")
+        input_modalities, output_modalities = infer_modalities(result.provider_id, result.model_id, [capability])
         models.append({
             "id": result.model_id,
             "status": result.status,
             "kind": "discovered",
             "capabilities": [capability],
+            "input_modalities": input_modalities,
+            "output_modalities": output_modalities,
         })
 
 
@@ -285,11 +290,20 @@ def _write_discovered_snapshot(path: Path, results: list[AuditResult]) -> None:
     for result in results:
         if result.model_id is None or "exact model discovered" not in result.reason:
             continue
+        model_type = _model_type(result.model_id)
+        capability = {
+            "chat/reason": "chat", "embedding": "embedding", "reranker": "reranking",
+            "speech": "speech", "image": "image",
+        }.get(model_type, "specialized")
+        input_modalities, output_modalities = infer_modalities(result.provider_id, result.model_id, [capability])
         providers[result.provider_id].append({
             "id": result.model_id,
             "status": result.status,
             "kind": "discovered",
             "category": _model_type(result.model_id),
+            "capabilities": [capability],
+            "input_modalities": input_modalities,
+            "output_modalities": output_modalities,
             "suitability": _suitability(result.model_id),
             "route": result.route,
             "pricing": "unknown",
@@ -352,15 +366,17 @@ def format_results(results: list[AuditResult], catalog: dict[str, Any] | None = 
     for (provider_id, model_type), entries in sorted(groups.items(), key=lambda item: (item[0][0], category_order.get(item[0][1], 9), item[0][1])):
         lines.extend([
             f"[{provider_id} / {model_type}]",
-            "model                                 source     status       input/1M  output/1M",
-            "-" * 87,
+            "model                                 input       output      source     status       input/1M  output/1M",
+            "-" * 112,
         ])
         for result, provider in entries:
             pricing = _pricing_for_model(provider, result.model_id or "")
             per_token = pricing.get("per_1m_tokens") or {}
             source = _model_source(provider, result.model_id or "")
+            model = next((item for item in provider.get("models", []) if isinstance(item, dict) and item.get("id") == result.model_id), {})
+            inputs, outputs = model_modalities(provider_id, result.model_id or "", model)
             lines.append(
-                f"{(result.model_id or '')[:35]:35} {source:10} {result.status:12} "
+                f"{(result.model_id or '')[:35]:35} {','.join(inputs)[:11]:11} {','.join(outputs)[:11]:11} {source:10} {result.status:12} "
                 f"{_price(per_token.get('input'), pricing):12} {_price(per_token.get('output'), pricing):12}"
             )
         lines.append("")

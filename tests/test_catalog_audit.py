@@ -26,7 +26,8 @@ def test_sync_discovered_models_adds_capability_metadata():
     from most.catalog_audit import AuditResult
     _sync_discovered_models(catalog, [AuditResult("einfra", "api", "qwen3.5", "available", "exact model discovered")])
     assert catalog["providers"][0]["models"] == [{
-        "id": "qwen3.5", "status": "available", "kind": "discovered", "capabilities": ["chat"]
+        "id": "qwen3.5", "status": "available", "kind": "discovered", "capabilities": ["chat"],
+        "input_modalities": ["text"], "output_modalities": ["text"]
     }]
 
 

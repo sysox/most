@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from .modalities import model_modalities
+
 ENVIRONMENT_KEYS = {
     "openai": "OPENAI_API_KEY",
     "einfra": "CERIT_API_KEY",
@@ -68,7 +70,8 @@ def refresh_if_stale(catalog_path: Path, discovered_path: Path, *, max_age_hours
 
 def select_model(
     options: list[dict[str, Any]], provider_id: str | None, model_id: str, route: str = "auto",
-    required_capability: str | None = None,
+    required_capability: str | None = None, required_input_modality: str | None = None,
+    required_output_modality: str | None = None,
 ) -> dict[str, Any]:
     matches = [option for option in options if option["model_id"] == model_id and (provider_id is None or option["provider_id"] == provider_id)]
     if not matches:
@@ -76,6 +79,10 @@ def select_model(
     if required_capability and not any(required_capability in option.get("capabilities", []) for option in matches):
         available = sorted({capability for option in matches for capability in option.get("capabilities", [])})
         raise ValueError(f"model {model_id!r} does not support {required_capability}; capabilities: {', '.join(available) or 'unknown'}")
+    if required_input_modality and not any(required_input_modality in option.get("input_modalities", []) for option in matches):
+        raise ValueError(f"model {model_id!r} does not accept {required_input_modality} input")
+    if required_output_modality and not any(required_output_modality in option.get("output_modalities", []) for option in matches):
+        raise ValueError(f"model {model_id!r} does not produce {required_output_modality} output")
     if route != "auto":
         matches = [option for option in matches if option["access_method"] == route]
         if not matches:
@@ -108,6 +115,8 @@ def _option(provider: dict[str, Any], method: dict[str, Any], model_id: str, mod
         "model_id": model_id,
         "model_kind": model.get("kind", "curated"),
         "capabilities": model.get("capabilities", []),
+        "input_modalities": model_modalities(provider_id, model_id, model)[0],
+        "output_modalities": model_modalities(provider_id, model_id, model)[1],
         "status": model.get("status", "unknown"),
         "access_method": method_id,
         "adapter_type": "",

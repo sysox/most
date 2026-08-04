@@ -47,6 +47,19 @@ def test_select_model_rejects_non_chat_capability():
         raise AssertionError("embedding model was incorrectly accepted for chat")
 
 
+def test_select_model_rejects_missing_input_modality():
+    options = [{
+        "provider_id": "ollama", "model_id": "text-model", "capabilities": ["chat"],
+        "input_modalities": ["text"], "output_modalities": ["text"], "access_method": "openai-compatible",
+    }]
+    try:
+        select_model(options, "ollama", "text-model", required_input_modality="image")
+    except ValueError as exc:
+        assert "does not accept image input" in str(exc)
+    else:
+        raise AssertionError("text-only model was incorrectly accepted for image input")
+
+
 def test_refresh_if_stale_preserves_existing_snapshot_when_discovery_has_no_models(tmp_path: Path, monkeypatch):
     catalog = tmp_path / "catalog.yaml"
     discovered = tmp_path / "discovered.yaml"

@@ -191,6 +191,10 @@ uv run python -m most catalog-options --capability image
 uv run python -m most catalog-options --capability speech
 ```
 
+`catalog-options` displays explicit `input` and `output` columns. For example,
+an embedding model is `text -> embedding`, a Whisper model is `audio -> text`,
+and an image generator is `text -> image`.
+
 `ai-chat` requires the selected model to advertise the `chat` capability, so
 embedding, image, and speech models cannot be sent accidentally to a text-chat
 route.

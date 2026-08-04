@@ -93,3 +93,7 @@ def test_every_listed_model_has_status_and_capability(provider_id, model_id):
     assert model["status"] in STATUSES
     assert isinstance(model["capabilities"], list)
     assert model["capabilities"]
+    assert isinstance(model["input_modalities"], list)
+    assert model["input_modalities"]
+    assert isinstance(model["output_modalities"], list)
+    assert model["output_modalities"]

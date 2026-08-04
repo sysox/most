@@ -81,19 +81,19 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--no-refresh", action="store_true")
     unified.add_argument("--max-age-hours", type=float, default=24.0)
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
-    _add_capability_task_args(embed, "embedding")
+    _add_capability_task_args(embed, "embedding", output_modality="embedding")
     embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
     embed.add_argument("--output", type=Path, help="write the vector as JSON")
     image = subparsers.add_parser("ai-image", help="generate an image from a prompt")
-    _add_capability_task_args(image, "image")
+    _add_capability_task_args(image, "image", output_modality="image")
     image.add_argument("prompt")
     image.add_argument("--output", type=Path, default=Path("generated-image.bin"))
     speech = subparsers.add_parser("ai-speech", help="synthesize speech from text")
-    _add_capability_task_args(speech, "speech")
+    _add_capability_task_args(speech, "speech", output_modality="audio")
     speech.add_argument("text")
     speech.add_argument("--output", type=Path, default=Path("generated-speech.bin"))
     image_analysis = subparsers.add_parser("ai-image-analyze", help="analyze an image with a vision-capable chat model")
-    _add_capability_task_args(image_analysis, "chat")
+    _add_capability_task_args(image_analysis, "chat", input_modality="image")
     image_analysis.add_argument("--input", type=Path, required=True, help="image file to analyze")
     image_analysis.add_argument("prompt", nargs="?", default="Describe this image.")
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
@@ -132,8 +132,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_capability_task_args(command: argparse.ArgumentParser, capability: str) -> None:
-    command.set_defaults(required_capability=capability)
+def _add_capability_task_args(command: argparse.ArgumentParser, capability: str, *, input_modality: str | None = None, output_modality: str | None = None) -> None:
+    command.set_defaults(required_capability=capability, required_input_modality=input_modality, required_output_modality=output_modality)
     command.add_argument("--provider", default="google")
     command.add_argument("--model", required=True)
     command.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
@@ -271,11 +271,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _format_options(options: list[dict[str, object]]) -> str:
-    lines = ["provider  model                         capability          route              status"]
-    lines.append("-" * 98)
+    lines = ["provider  model                         input       output      route              status"]
+    lines.append("-" * 92)
     for option in options:
-        capabilities = ",".join(str(value) for value in option.get("capabilities", [])) or "unknown"
-        lines.append(f"{option['provider_id']!s:9} {str(option['model_id'])[:29]:29} {capabilities[:18]:18} {option['access_method']!s:18} {option['status']}")
+        inputs = ",".join(str(value) for value in option.get("input_modalities", [])) or "unknown"
+        outputs = ",".join(str(value) for value in option.get("output_modalities", [])) or "unknown"
+        lines.append(f"{option['provider_id']!s:9} {str(option['model_id'])[:29]:29} {inputs[:11]:11} {outputs[:11]:11} {option['access_method']!s:18} {option['status']}")
     return "\n".join(lines)
 
 
@@ -337,6 +338,8 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
     option = select_model(
         load_model_options(args.catalog, args.discovered), args.provider, args.model, "api",
         required_capability=args.required_capability,
+        required_input_modality=args.required_input_modality,
+        required_output_modality=args.required_output_modality,
     )
     if option["adapter_type"] != "gemini-api":
         raise SystemExit("non-text API tasks currently support the Google Gemini API route")

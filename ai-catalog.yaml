@@ -28,14 +28,20 @@ providers:
     status: available
     capabilities:
     - chat
+    input_modalities: [text]
+    output_modalities: [text]
   - id: ministral-3:8b
     status: available
     capabilities:
     - chat
+    input_modalities: [text]
+    output_modalities: [text]
   - id: embeddinggemma:latest
     status: available
     capabilities:
     - embedding
+    input_modalities: [text]
+    output_modalities: [embedding]
 - id: einfra
   name: CERIT-SC / e-INFRA CZ
   kind: einfra
@@ -64,6 +70,8 @@ providers:
     capabilities:
     - chat
     - tools
+    input_modalities: [text]
+    output_modalities: [text]
   - id: coder
     status: available
     kind: maintained-alias
@@ -71,6 +79,8 @@ providers:
     capabilities:
     - chat
     - coding
+    input_modalities: [text]
+    output_modalities: [text]
   - id: agentic
     status: available
     kind: maintained-alias
@@ -79,6 +89,8 @@ providers:
     - chat
     - tools
     - coding
+    input_modalities: [text]
+    output_modalities: [text]
   - id: thinker
     status: available
     kind: maintained-alias
@@ -86,6 +98,8 @@ providers:
     capabilities:
     - chat
     - reasoning
+    input_modalities: [text]
+    output_modalities: [text]
   notes:
   - Exact model versions can be replaced without notice.
   - Use maintained aliases when reproducibility of the exact model is not required.
@@ -116,6 +130,8 @@ providers:
     - chat
     - reasoning
     - coding
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 5
@@ -130,6 +146,8 @@ providers:
     - chat
     - reasoning
     - coding
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 2
@@ -143,6 +161,8 @@ providers:
     capabilities:
     - chat
     - coding
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 1
@@ -178,6 +198,8 @@ providers:
     - reasoning
     - coding
     - tools
+    input_modalities: [text, image]
+    output_modalities: [text]
   - id: gpt-5.6-sol
     status: available
     capabilities:
@@ -185,6 +207,8 @@ providers:
     - reasoning
     - coding
     - tools
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 5
@@ -222,6 +246,8 @@ providers:
     - chat
     - reasoning
     - coding
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 2
@@ -236,6 +262,8 @@ providers:
     - chat
     - reasoning
     - coding
+    input_modalities: [text, image]
+    output_modalities: [text]
     pricing:
       per_1m_tokens:
         input: 1.5
