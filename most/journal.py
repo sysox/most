@@ -39,18 +39,18 @@ class JournalService:
             record_type="SESSION_EVENT",
         )
 
-    def record_response(self, session_id: str, response_id: str, payload: dict[str, object]) -> Path:
+    def record_response(self, session_id: str, response_id: str, payload: dict[str, object], secrets: tuple[str, ...] = ()) -> Path:
         from .redaction import redact_value
         from .serialization import versioned_payload
         return self.store.write_json(
             f"sessions/{session_id}/structured/response-{response_id}.json",
-            versioned_payload(redact_value(payload), record_type="AI_RESPONSE", record_id=response_id),
+            versioned_payload(redact_value(payload, secrets), record_type="AI_RESPONSE", record_id=response_id),
         )
 
-    def record_error(self, session_id: str, error_id: str, payload: dict[str, object]) -> Path:
+    def record_error(self, session_id: str, error_id: str, payload: dict[str, object], secrets: tuple[str, ...] = ()) -> Path:
         from .redaction import redact_value
         from .serialization import versioned_payload
         return self.store.write_json(
             f"sessions/{session_id}/structured/error-{error_id}.json",
-            versioned_payload(redact_value(payload), record_type="ERROR", record_id=error_id),
+            versioned_payload(redact_value(payload, secrets), record_type="ERROR", record_id=error_id),
         )

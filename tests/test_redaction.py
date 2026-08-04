@@ -23,3 +23,8 @@ def test_cli_output_is_redacted_before_return(tmp_path: Path):
 def test_journal_response_is_redacted(tmp_path: Path):
     JournalService(tmp_path).record_response("session", "response", {"text": "api_key=secret"})
     assert "secret" not in (tmp_path / "sessions/session/structured/response-response.json").read_text()
+
+
+def test_journal_response_redacts_exact_secret_value(tmp_path: Path):
+    JournalService(tmp_path).record_response("session", "response", {"text": "raw-token"}, ("raw-token",))
+    assert "raw-token" not in (tmp_path / "sessions/session/structured/response-response.json").read_text()

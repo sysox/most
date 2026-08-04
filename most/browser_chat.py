@@ -63,7 +63,7 @@ class BrowserSessionAdapter:
     def get_observability_profile(self, configuration):
         return self.browser.get_observability_profile(configuration)
 
-    def execute(self, request, configuration, credential_handle=None):
+    def execute(self, request, configuration, credential=None):
         prompt = request.get("messages", [])[-1]["content"]
         browser_configuration = {
             **configuration["adapter_options"],

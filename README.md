@@ -350,7 +350,12 @@ The command opens the provider site, pauses for manual login, and then records
 the conversation and execution in the same file-backed journal. It does not
 bypass login, CAPTCHA, consent, rate limits, or other site controls.
 
-The current implementation starts with portable domain records, deterministic
-result lineage, atomic YAML/JSON persistence, crash-tolerant JSONL recovery,
-exposure-policy evaluation, and adapter boundaries. Workspace orchestration and
-provider adapters are added behind these interfaces.
+The current implementation provides unified CLI and API chat, embeddings,
+image generation and analysis, speech synthesis, transcription, dynamic model
+catalog discovery, pricing updates, provider-health checks, exposure-policy
+evaluation, and file-backed execution/result journaling. Local, official-cloud,
+OpenAI-compatible, provider-CLI, and manually authenticated browser routes use
+the same execution gate. Browser conversations remain opt-in and explicit;
+MOST does not passively capture activity from provider applications or websites.
+Benchmark-based model recommendations and full submodule/LFS/path-limit
+mutation fallbacks remain future work.

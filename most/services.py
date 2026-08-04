@@ -293,7 +293,7 @@ class ExecutionManager:
 
     def build_adapter_context(self, execution: Execution, request: AIRequest, configuration: AIConfiguration,
                               connectivity: Connectivity, capabilities: EffectiveCapabilities,
-                              credential_handle: str | None = None, workspace_scope: tuple[str, ...] = ()) -> AdapterExecutionContext:
+                              credential: str | None = None, workspace_scope: tuple[str, ...] = ()) -> AdapterExecutionContext:
         return AdapterExecutionContext(
             execution_id=execution.id,
             request_snapshot=immutable_snapshot(record_payload(request, record_type="AI_REQUEST")),
@@ -301,7 +301,7 @@ class ExecutionManager:
             effective_capabilities=capabilities,
             context_assembly_record=immutable_snapshot({}),
             resolved_connectivity=connectivity,
-            credential_handle=credential_handle,
+            credential=credential,
             workspace_scope=workspace_scope,
         )
 
@@ -329,7 +329,7 @@ class ExecutionManager:
         return execution
 
     def execute(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
-                credential_handle: str | None = None, confirmation: bool = False):
+                credential: str | None = None, confirmation: bool = False):
         """Run one adapter invocation only after connectivity/exposure validation."""
         self._validate_adapter_configuration(adapter, configuration)
         declared_connectivity = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
@@ -358,11 +358,12 @@ class ExecutionManager:
         self._event(execution, event)
         try:
             self.journal.record_request(execution.session_id, request)
-            response = adapter.execute(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle)
+            response = adapter.execute(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential)
             self.journal.record_response(
                 execution.session_id,
                 new_id(),
                 _response_payload(response),
+                secrets=(credential,) if credential else (),
             )
             execution, event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, event)
@@ -372,6 +373,7 @@ class ExecutionManager:
                 execution.session_id,
                 new_id(),
                 {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
+                secrets=(credential,) if credential else (),
             )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, event = transition(failed, ExecutionState.FAILED)
@@ -380,7 +382,7 @@ class ExecutionManager:
             raise
 
     def stream(self, execution: Execution, request: AIRequest, configuration: AIConfiguration, adapter,
-               credential_handle: str | None = None, confirmation: bool = False) -> tuple[Execution, list[StreamEvent]]:
+               credential: str | None = None, confirmation: bool = False) -> tuple[Execution, list[StreamEvent]]:
         """Run a structured adapter stream and persist every observed event."""
         self._validate_adapter_configuration(adapter, configuration)
         declared = adapter.resolve_connectivity(record_payload(configuration, record_type="AI_CONFIGURATION"))
@@ -402,7 +404,7 @@ class ExecutionManager:
         previous_hash = None
         try:
             self.journal.record_request(execution.session_id, request)
-            for item in adapter.stream(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential_handle):
+            for item in adapter.stream(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential):
                 event = create_stream_event(
                     execution.id,
                     len(self.store.read_jsonl(f"executions/{execution.id}/events.jsonl")) + 1,
@@ -426,6 +428,7 @@ class ExecutionManager:
                 execution.session_id,
                 new_id(),
                 {"execution_id": execution.id, "stream_events": [event.payload for event in observed]},
+                secrets=(credential,) if credential else (),
             )
             execution, status_event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, status_event)
@@ -435,6 +438,7 @@ class ExecutionManager:
                 execution.session_id,
                 new_id(),
                 {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
+                secrets=(credential,) if credential else (),
             )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, status_event = transition(failed, ExecutionState.FAILED)
@@ -485,6 +489,9 @@ class ExecutionManager:
 
 def _response_payload(response: object) -> dict[str, object]:
     """Convert adapter responses to a redacted-journal-friendly mapping."""
+    journal_payload = getattr(response, "journal_payload", None)
+    if isinstance(journal_payload, dict):
+        return journal_payload
     if isinstance(response, dict):
         return response
     body = getattr(response, "body", None)

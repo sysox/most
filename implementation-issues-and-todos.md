@@ -20,7 +20,7 @@
 - [x] Select the initial UI and CLI technology; the MVP uses the standard-library CLI in `most/cli.py`, with execution and workspace inspection views.
 - [x] Define the canonical location and synchronization rules for workspace journals (§15, §18.1, §19). Resolved in `design.md` §24: application data is authoritative and project-local journals are synchronized exports unless explicitly configured otherwise.
 - [x] Clarify whether checkpoint commits are mandatory by default or optional according to policy (§18.4, §18.9, §25). Resolved in `design.md` §18.4: one checkpoint per meaningful iteration unless `MANUAL` is selected.
-- [ ] Define credential-handle lifetime, memory handling, redaction, and adapter access rules (§7.6, §12.1).
+- [x] Define current credential handling: provider credentials are resolved at request time, passed to adapters as `credential`, redacted before journaling, and never persisted as opaque handles (§7.6, §12.1).
 - [ ] Define the exact schema and ownership of derived indexes under `indexes/` (§15, §21).
 
 ## Core Implementation TODOs
@@ -72,7 +72,7 @@
 - [x] Prevent AI changes directly on the main branch (§22, §23). Workspace preparation uses `ai/<session-id>` branches and dedicated worktrees/clones.
 - [x] Implement dirty-tree inspection and the configured policies `REQUIRE_CLEAN`, `ISOLATE_FROM_HEAD`, `IMPORT_USER_SNAPSHOT`, and `STASH_WITH_CONFIRMATION` (§18.6).
 - [x] Implement dedicated branches and worktrees with the documented fallback chain (§18.2, §18.7). Worktree creation falls back to an isolated clone and clean-policy failures refuse direct editing.
-- [ ] Inspect and handle submodules, Git LFS, filesystem permissions, and Windows path limits (§18.7).
+- [x] Inspect and report submodule, Git LFS, filesystem-permission, and Windows path-limit compatibility; full mutation/fallback handling remains follow-up (§18.7).
 - [x] Implement recoverable workspace leases and one active writer per AI worktree (§18.8).
 - [x] Detect unexpected file hashes or Git-state changes and pause with `WORKSPACE_DIVERGED` (§18.8).
 - [x] Implement the `AIIteration` record and store plans, patches, commands, tests, reviews, diffs, and commit references (§18.3, §19).
@@ -94,7 +94,7 @@
 - [x] Add cross-platform CI for macOS, Linux, and Windows (§1, §6, §31).
 - [x] Add live provider smoke testing and failure-triggered health checks with replacement suggestions.
 - [x] Add capability-specific multimodal commands for embeddings, images, speech, and transcription.
-- [x] Define and document the final test, lint, type-check, build, and packaging commands after the technology stack is selected.
+- [x] Define and document the final test, lint, build, and packaging commands after the technology stack is selected. Static type checking is intentionally not enabled yet because the existing dynamic adapter/platform boundary needs a separate typing pass.
 
 ## Suggested Validation Commands After Tooling Exists
 
@@ -103,6 +103,5 @@ git status --short --branch
 git diff --check
 <project-test-command>
 <project-lint-command>
-<project-type-check-command>
 <project-build-command>
 ```

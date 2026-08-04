@@ -54,7 +54,7 @@ class AdapterExecutionContext:
     effective_capabilities: EffectiveCapabilities
     context_assembly_record: dict[str, Any]
     resolved_connectivity: Connectivity
-    credential_handle: str | None
+    credential: str | None
     workspace_scope: tuple[str, ...]
     cancellation_handle: Any = None
     event_sink: Any = None

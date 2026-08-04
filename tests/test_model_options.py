@@ -28,6 +28,23 @@ providers:
     assert selected["adapter_type"] == "openai-api"
 
 
+def test_select_model_does_not_prefer_uncredentialed_compatible_route():
+    options = [
+        {
+            "provider_id": "einfra", "model_id": "m", "capabilities": ["chat"],
+            "access_method": "openai-compatible", "endpoint": "https://example.invalid/v1",
+            "credential_env": "CERIT_API_KEY", "credential_available": False,
+        },
+        {
+            "provider_id": "einfra", "model_id": "m", "capabilities": ["chat"],
+            "access_method": "api", "endpoint": "https://example.invalid/v1",
+            "credential_env": "CERIT_API_KEY", "credential_available": True,
+        },
+    ]
+    selected = select_model(options, "einfra", "m")
+    assert selected["access_method"] == "api"
+
+
 def test_discovered_models_are_available_to_unified_options(tmp_path: Path):
     catalog = tmp_path / "catalog.yaml"
     discovered = tmp_path / "discovered.yaml"

@@ -97,7 +97,8 @@ def analyze_image_openai_compatible(transport: Transport, base_url: str, model: 
     return text, response.body.get("usage", {})
 
 
-def transcribe_audio(base_url: str, model: str, credential: str | None, audio_path: Path) -> str:
+def transcribe_audio(base_url: str, model: str, credential: str | None, audio_path: Path, opener=None) -> str:
+    """Transcribe audio, with an injectable opener for deterministic tests."""
     boundary = "most-" + uuid.uuid4().hex
     data = audio_path.read_bytes()
     filename = audio_path.name
@@ -115,7 +116,7 @@ def transcribe_audio(base_url: str, model: str, credential: str | None, audio_pa
         headers["authorization"] = f"Bearer {credential}"
     request = Request(base_url.rstrip("/") + "/audio/transcriptions", data=b"".join(parts), headers=headers, method="POST")
     try:
-        with urlopen(request, timeout=60) as response:
+        with (opener or urlopen)(request, timeout=60) as response:
             body = response.read().decode("utf-8")
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")

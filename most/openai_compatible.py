@@ -65,7 +65,7 @@ class OpenAICompatibleAdapter:
     def get_observability_profile(self, configuration: dict[str, Any]) -> Observability:
         return Observability.STRUCTURED_STREAM
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> HTTPResponse:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> HTTPResponse:
         if self.transport is None:
             raise RuntimeError("no HTTP transport configured")
         errors = self.validate_configuration(configuration)
@@ -73,14 +73,14 @@ class OpenAICompatibleAdapter:
             raise ValueError("invalid configuration: " + "; ".join(errors))
         options = configuration["adapter_options"]
         headers = {"content-type": "application/json"}
-        if credential_handle:
-            headers["authorization"] = f"Bearer {credential_handle}"
+        if credential:
+            headers["authorization"] = f"Bearer {credential}"
         payload = {**request, "model": configuration["model_reference"]}
         return self.transport(options["base_url"].rstrip("/") + "/chat/completions", headers, payload)
 
-    def stream(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None):
+    def stream(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None):
         """Yield provider-supplied stream records without fabricating hidden steps."""
-        response = self.execute({**request, "stream": True}, configuration, credential_handle)
+        response = self.execute({**request, "stream": True}, configuration, credential)
         events = response.body.get("events", [])
         if not isinstance(events, list):
             raise TypeError("stream transport must return an events list")

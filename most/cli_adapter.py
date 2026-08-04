@@ -52,21 +52,21 @@ class CLIAdapter:
     def resolve_connectivity(self, configuration: dict[str, Any]) -> Connectivity:
         return Connectivity(None, "local", "localhost", "DECLARED", ("CLI process is locally launched",))
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> dict[str, Any]:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> dict[str, Any]:
         errors = self.validate_configuration(configuration)
         if errors:
             raise ValueError("invalid CLI configuration: " + "; ".join(errors))
         options = configuration["adapter_options"]
         arguments = [str(argument) for argument in options.get("arguments", [])]
-        if credential_handle:
-            # The opaque handle may only be passed through an explicitly named
+        if credential:
+            # The credential may only be passed through an explicitly named
             # environment variable; it is never written to observed arguments.
             environment = dict(options.get("environment", {}))
-            environment["MOST_CREDENTIAL_HANDLE"] = credential_handle
+            environment["MOST_CREDENTIAL"] = credential
         else:
             environment = options.get("environment")
         execution = self.start(str(options["executable"]), arguments, Path(str(options["working_directory"])), environment)
-        stdout, stderr, returncode = self.collect(execution)
+        stdout, stderr, returncode = self.collect(execution, (credential,) if credential else ())
         return {"stdout": stdout, "stderr": stderr, "returncode": returncode, "command": execution.redacted_command}
 
     def start(self, executable: str, arguments: list[str], working_directory: Path,

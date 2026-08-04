@@ -32,20 +32,20 @@ class CloudAPIAdapter:
         parsed = urlparse(endpoint or "")
         return Connectivity(endpoint, "provider-cloud", "public-internet", "DECLARED", (f"provider host: {parsed.hostname or 'unknown'}",))
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> HTTPResponse:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> HTTPResponse:
         errors = self.validate_configuration(configuration)
         if errors:
             raise ValueError("invalid cloud configuration: " + "; ".join(errors))
-        if not credential_handle:
-            raise PermissionError("cloud execution requires an opaque credential handle")
+        if not credential:
+            raise PermissionError("cloud execution requires a credential")
         if self.transport is None:
             raise RuntimeError("no cloud HTTP transport configured")
         options = configuration["adapter_options"]
         api_key_header = options["api_key_header"]
         credential_value = (
-            f"Bearer {credential_handle}"
+            f"Bearer {credential}"
             if api_key_header.lower() == "authorization"
-            else credential_handle
+            else credential
         )
         headers = {"content-type": "application/json", api_key_header: credential_value}
         return self.transport(options["base_url"], headers, request)

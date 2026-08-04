@@ -59,3 +59,54 @@ def test_provider_cli_command_mapping():
     assert command_for("claude", "hello") == ("-p", "hello")
     assert command_for("gemini", "hello") == ("-p", "hello")
     assert command_for("agy", "hello") == ("--output-format", "text", "--sandbox", "--print", "hello")
+
+
+def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):
+    from most import cli
+    from most.adapters import Connectivity
+    from most.multimodal_adapter import MultimodalResult
+
+    class FakeMultimodalAdapter:
+        def validate_configuration(self, configuration):
+            return []
+
+        def resolve_connectivity(self, configuration):
+            return Connectivity("http://127.0.0.1:11434/v1", "local", "localhost", "DECLARED")
+
+        def get_observability_profile(self, configuration):
+            return "STRUCTURED_STREAM"
+
+        def execute(self, request, configuration, credential):
+            operation = configuration["adapter_options"]["operation"]
+            if operation == "embedding":
+                return MultimodalResult([0.1, 0.2], {"operation": operation, "dimensions": 2})
+            if operation == "image-analysis":
+                return MultimodalResult("looks good", {"operation": operation})
+            if operation == "transcription":
+                return MultimodalResult("spoken text", {"operation": operation})
+            return MultimodalResult(b"binary", {"operation": operation, "mime_type": "audio/wav"})
+
+    monkeypatch.setattr("most.multimodal_adapter.MultimodalAdapter", FakeMultimodalAdapter)
+    option = {
+        "access_method": "openai-compatible", "endpoint": "http://127.0.0.1:11434/v1",
+        "adapter_type": "openai-compatible", "credential_env": None, "pricing": {},
+    }
+    monkeypatch.setattr(cli, "_select_capability_task", lambda args: (option, None))
+    input_path = tmp_path / "input.txt"
+    input_path.write_text("hello", encoding="utf-8")
+    image_path = tmp_path / "input.png"
+    image_path.write_bytes(b"png")
+    audio_path = tmp_path / "input.wav"
+    audio_path.write_bytes(b"wav")
+
+    common = {"data_root": tmp_path, "provider": "ollama", "model": "test-model", "catalog": Path("ai-catalog.yaml"),
+              "discovered": Path("ai-discovered.yaml"), "no_refresh": True, "max_age_hours": 24.0}
+    cli.run_embedding(Namespace(**common, input=input_path, output=tmp_path / "embedding.json", required_capability="embedding", required_output_modality="embedding", required_input_modality=None))
+    cli.run_image_generation(Namespace(**common, prompt="draw", output=tmp_path / "image.bin", required_capability="image", required_output_modality="image", required_input_modality=None))
+    cli.run_speech(Namespace(**common, text="speak", output=tmp_path / "speech.bin", required_capability="speech", required_output_modality="audio", required_input_modality=None))
+    cli.run_image_analysis(Namespace(**common, input=image_path, prompt="describe", required_capability="chat", required_output_modality=None, required_input_modality="image"))
+    cli.run_transcription(Namespace(**common, input=audio_path, required_capability="transcription", required_output_modality="text", required_input_modality="audio", require_credential=False))
+    capsys.readouterr()
+    metadata = list((tmp_path / "executions").glob("*/metadata.yaml"))
+    assert len(metadata) == 5
+    assert all("resolved_connectivity" in path.read_text(encoding="utf-8") for path in metadata)

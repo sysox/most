@@ -367,6 +367,60 @@ def run_unified_chat(args: argparse.Namespace) -> int:
         raise
 
 
+def _execute_multimodal_task(args: argparse.Namespace, option: dict[str, object], credential: str | None,
+                             operation: str, input_summary: str, adapter_options: dict[str, object]):
+    from .multimodal_adapter import MultimodalAdapter
+
+    sessions = SessionService(args.data_root)
+    session = sessions.create(f"{args.provider} {operation}: {args.model}")
+    configuration = AIConfiguration(
+        name=f"{args.provider}: {args.model}", provider_id=args.provider,
+        model_reference=args.model, access_method_id=str(option["access_method"]),
+        location="local" if args.provider == "ollama" else "provider-cloud",
+        network="localhost" if args.provider == "ollama" else "public-internet",
+        adapter_options={"provider_id": args.provider, "endpoint": str(option["endpoint"]),
+                         "operation": operation, "pricing": option.get("pricing", {}), **adapter_options},
+        declared_capabilities=[str(args.required_capability)],
+    )
+    interaction = sessions.append_interaction(session, configuration.id, 1)
+    request = AIRequest(
+        session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
+        messages=[{"role": "user", "content": input_summary}],
+        execution_options={"operation": operation},
+    )
+    manager = ExecutionManager(args.data_root)
+    execution = manager.prepare(request, configuration, session)
+    try:
+        execution, response = manager.execute(
+            execution, request, configuration, MultimodalAdapter(), credential=credential,
+        )
+    except (ConnectionError, OSError, RuntimeError, TimeoutError) as exc:
+        from .provider_health import format_health, record_failure
+
+        try:
+            health_record = record_failure(
+                args.data_root, args.catalog, args.discovered,
+                provider_id=str(option["provider_id"]), model_id=args.model,
+                route=str(option["access_method"]), error=str(exc),
+            )
+            print(f"provider health: {format_health([health_record])}", file=sys.stderr)
+        except (ConnectionError, OSError, RuntimeError, TimeoutError, ValueError, KeyError, TypeError) as health_error:
+            print(f"provider health check failed: {health_error}", file=sys.stderr)
+        raise
+    return sessions, session, interaction, execution, response
+
+
+def _record_multimodal_result(sessions: SessionService, session, interaction, execution, operation: str,
+                              content: str, metadata: dict[str, object] | None = None) -> str:
+    result = IntermediateResult(
+        session_id=session.id, interaction_id=interaction.id, execution_id=execution.id,
+        sequence_number=1, result_type=operation, metadata=metadata or {},
+    )
+    sessions.add_result(result, content)
+    session.active_result_id = result.id
+    return session.id
+
+
 def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object], str]:
     from .credentials import resolve_provider_credential
     from .model_options import load_model_options, refresh_if_stale, select_model
@@ -397,25 +451,18 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
 def run_embedding(args: argparse.Namespace) -> int:
     import json
 
-    from .http_transport import urllib_json_transport
-    from .multimodal import embed
-
     if not args.input.is_file():
         raise SystemExit(f"input text file not found: {args.input}")
     option, credential = _select_capability_task(args)
-    if option["adapter_type"] == "gemini-api":
-        vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
-        usage = {}
-    else:
-        from .multimodal import embed_openai_compatible
-        vector, usage = embed_openai_compatible(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
+    sessions, session, interaction, execution, response = _execute_multimodal_task(
+        args, option, credential, "embedding", f"text file: {args.input}", {"input_path": str(args.input)},
+    )
+    vector = response.value
+    usage = response.journal_payload.get("usage", {})
     serialized = json.dumps({"model": args.model, "dimensions": len(vector), "values": vector}, indent=2)
-    from .task_journal import record_task
-    session_id = record_task(
-        args.data_root, provider=args.provider, model=args.model, operation="embedding",
-        input_summary=f"text file: {args.input}", output_summary=f"embedding with {len(vector)} dimensions",
-        metadata={"dimensions": len(vector), "output": str(args.output) if args.output else None, "usage": usage},
-        pricing=option.get("pricing"),
+    session_id = _record_multimodal_result(
+        sessions, session, interaction, execution, "embedding",
+        f"embedding with {len(vector)} dimensions", {"dimensions": len(vector), "usage": usage},
     )
     if args.output:
         args.output.write_text(serialized + "\n", encoding="utf-8")
@@ -427,18 +474,15 @@ def run_embedding(args: argparse.Namespace) -> int:
 
 
 def run_image_generation(args: argparse.Namespace) -> int:
-    from .http_transport import urllib_json_transport
-    from .multimodal import generate_image
-
     option, credential = _select_capability_task(args)
-    data, mime = generate_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.prompt)
+    sessions, session, interaction, execution, response = _execute_multimodal_task(
+        args, option, credential, "image-generation", args.prompt, {"prompt": args.prompt},
+    )
+    data, mime = response.value, response.journal_payload["mime_type"]
     args.output.write_bytes(data)
-    from .task_journal import record_task
-    session_id = record_task(
-        args.data_root, provider=args.provider, model=args.model, operation="image-generation",
-        input_summary=args.prompt, output_summary=f"image written to {args.output}",
-        metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
-        pricing=option.get("pricing"),
+    session_id = _record_multimodal_result(
+        sessions, session, interaction, execution, "image-generation",
+        f"image written to {args.output}", {"mime_type": mime, "output": str(args.output), "bytes": len(data)},
     )
     print(f"image written: {args.output} ({mime})")
     print(f"session: {session_id}")
@@ -446,18 +490,15 @@ def run_image_generation(args: argparse.Namespace) -> int:
 
 
 def run_speech(args: argparse.Namespace) -> int:
-    from .http_transport import urllib_json_transport
-    from .multimodal import synthesize_speech
-
     option, credential = _select_capability_task(args)
-    data, mime = synthesize_speech(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.text)
+    sessions, session, interaction, execution, response = _execute_multimodal_task(
+        args, option, credential, "speech-synthesis", args.text, {"prompt": args.text},
+    )
+    data, mime = response.value, response.journal_payload["mime_type"]
     args.output.write_bytes(data)
-    from .task_journal import record_task
-    session_id = record_task(
-        args.data_root, provider=args.provider, model=args.model, operation="speech-synthesis",
-        input_summary=args.text, output_summary=f"audio written to {args.output}",
-        metadata={"mime_type": mime, "output": str(args.output), "bytes": len(data)},
-        pricing=option.get("pricing"),
+    session_id = _record_multimodal_result(
+        sessions, session, interaction, execution, "speech-synthesis",
+        f"audio written to {args.output}", {"mime_type": mime, "output": str(args.output), "bytes": len(data)},
     )
     print(f"speech written: {args.output} ({mime})")
     print(f"session: {session_id}")
@@ -465,43 +506,29 @@ def run_speech(args: argparse.Namespace) -> int:
 
 
 def run_image_analysis(args: argparse.Namespace) -> int:
-    from .http_transport import urllib_json_transport
-    from .multimodal import analyze_image
-
     if not args.input.is_file():
         raise SystemExit(f"input image file not found: {args.input}")
     option, credential = _select_capability_task(args)
-    if option["adapter_type"] == "gemini-api":
-        result = analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
-        usage = {}
-    else:
-        from .multimodal import analyze_image_openai_compatible
-        result, usage = analyze_image_openai_compatible(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt)
-    from .task_journal import record_task
-    session_id = record_task(
-        args.data_root, provider=args.provider, model=args.model, operation="image-analysis",
-        input_summary=f"image: {args.input}; prompt: {args.prompt}", output_summary=result,
-        metadata={"usage": usage},
-        pricing=option.get("pricing"),
+    sessions, session, interaction, execution, response = _execute_multimodal_task(
+        args, option, credential, "image-analysis", f"image: {args.input}; prompt: {args.prompt}",
+        {"input_path": str(args.input), "prompt": args.prompt},
     )
+    result = str(response.value)
+    session_id = _record_multimodal_result(sessions, session, interaction, execution, "image-analysis", result, response.journal_payload)
     print(result)
     print(f"session: {session_id}")
     return 0
 
 
 def run_transcription(args: argparse.Namespace) -> int:
-    from .multimodal import transcribe_audio
-    from .task_journal import record_task
-
     if not args.input.is_file():
         raise SystemExit(f"input audio file not found: {args.input}")
     option, credential = _select_capability_task(args)
-    result = transcribe_audio(str(option["endpoint"]), args.model, credential, args.input)
-    session_id = record_task(
-        args.data_root, provider=args.provider, model=args.model, operation="transcription",
-        input_summary=f"audio: {args.input}", output_summary=result,
-        pricing=option.get("pricing"),
+    sessions, session, interaction, execution, response = _execute_multimodal_task(
+        args, option, credential, "transcription", f"audio: {args.input}", {"input_path": str(args.input)},
     )
+    result = str(response.value)
+    session_id = _record_multimodal_result(sessions, session, interaction, execution, "transcription", result, response.journal_payload)
     print(result)
     print(f"session: {session_id}")
     return 0
@@ -608,7 +635,7 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
         request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
         execution = manager.prepare(request, configuration, session)
-        execution, response = manager.execute(execution, request, configuration, adapter, credential_handle=credential)
+        execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize_response(response)
         content = "".join(str(part.get("text", "")) for part in normalized["content_parts"] if isinstance(part, dict))
         result = IntermediateResult(
@@ -662,7 +689,7 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
         request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
         execution = manager.prepare(request, configuration, session)
-        execution, response = manager.execute(execution, request, configuration, adapter, credential_handle=credential)
+        execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize_openai_response(response)
         content = "".join(str(part.get("text", "")) for part in normalized["content_parts"] if isinstance(part, dict))
         result = IntermediateResult(session_id=session.id, interaction_id=interaction.id, execution_id=execution.id,

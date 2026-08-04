@@ -47,7 +47,7 @@ class ProviderCLIAdapter:
     def get_observability_profile(self, configuration):
         return Observability.TEXT_STREAM
 
-    def execute(self, request, configuration, credential_handle=None):
+    def execute(self, request, configuration, credential=None):
         messages = request.get("messages", [])
         prompt = _transcript_prompt(messages)
         arguments = list(command_for(self.provider, prompt))

@@ -1211,11 +1211,11 @@ Every adapter implements:
 
 ```text
 validate_configuration(configuration) -> ValidationReport
-test_connection(configuration, credential_handle?) -> ConnectionReport
-get_capabilities(configuration, credential_handle?) -> CapabilityReport
+test_connection(configuration, credential?) -> ConnectionReport
+get_capabilities(configuration, credential?) -> CapabilityReport
 get_observability_profile(configuration) -> AdapterObservabilityProfile
 resolve_connectivity(configuration) -> ConnectivityResolution
-list_models(configuration, credential_handle?) -> list[ModelDescriptor]
+list_models(configuration, credential?) -> list[ModelDescriptor]
 execute(context) -> AIResponse
 stream(context) -> AsyncIterator[StreamEvent]
 cancel(cancellation_handle) -> CancellationReport
@@ -1252,7 +1252,7 @@ AdapterExecutionContext
 - effective_capabilities
 - context_assembly_record
 - resolved_connectivity
-- credential_handle
+- credential
 - workspace_scope
 - cancellation_handle
 - event_sink
@@ -1261,7 +1261,7 @@ AdapterExecutionContext
 
 Rules:
 
-- `credential_handle` is opaque and short-lived;
+- `credential` is a request-scoped raw secret resolved by the credential service; it is never persisted and is redacted before journal/export writes;
 - adapters must not read configuration repositories directly;
 - adapters emit events only through `event_sink`;
 - adapters write no journal files directly;

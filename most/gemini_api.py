@@ -54,12 +54,12 @@ class GeminiAPIAdapter:
     def get_observability_profile(self, configuration: dict[str, Any]) -> Observability:
         return Observability.STRUCTURED_STREAM
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> HTTPResponse:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> HTTPResponse:
         errors = self.validate_configuration(configuration)
         if errors:
             raise ValueError("invalid Gemini configuration: " + "; ".join(errors))
-        if not credential_handle:
-            raise PermissionError("Gemini execution requires an opaque credential handle")
+        if not credential:
+            raise PermissionError("Gemini execution requires a credential")
         if self.transport is None:
             raise RuntimeError("no HTTP transport configured")
         contents = []
@@ -74,5 +74,5 @@ class GeminiAPIAdapter:
         }
         model = str(configuration["model_reference"]).removeprefix("models/")
         url = configuration["adapter_options"]["base_url"].rstrip("/") + f"/models/{model}:generateContent"
-        headers = {"content-type": "application/json", "x-goog-api-key": credential_handle}
+        headers = {"content-type": "application/json", "x-goog-api-key": credential}
         return self.transport(url, headers, payload)

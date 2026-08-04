@@ -50,12 +50,12 @@ class AnthropicAPIAdapter:
     def get_observability_profile(self, configuration: dict[str, Any]) -> Observability:
         return Observability.STRUCTURED_STREAM
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> HTTPResponse:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> HTTPResponse:
         errors = self.validate_configuration(configuration)
         if errors:
             raise ValueError("invalid Anthropic configuration: " + "; ".join(errors))
-        if not credential_handle:
-            raise PermissionError("Anthropic execution requires an opaque credential handle")
+        if not credential:
+            raise PermissionError("Anthropic execution requires a credential")
         if self.transport is None:
             raise RuntimeError("no HTTP transport configured")
         messages = []
@@ -78,7 +78,7 @@ class AnthropicAPIAdapter:
             payload["system"] = "\n\n".join(system_parts)
         headers = {
             "content-type": "application/json",
-            "x-api-key": credential_handle,
+            "x-api-key": credential,
             "anthropic-version": "2023-06-01",
         }
         return self.transport(configuration["adapter_options"]["base_url"].rstrip("/") + "/v1/messages", headers, payload)

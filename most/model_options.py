@@ -132,7 +132,13 @@ def _option(provider: dict[str, Any], method: dict[str, Any], model_id: str, mod
 def _route_rank(option: dict[str, Any]) -> tuple[int, int]:
     method = option["access_method"]
     if method == "openai-compatible":
-        return (0, 0)
+        # A configured compatible endpoint is preferred only when its required
+        # credential is available.  Local endpoints normally have no credential
+        # requirement and remain eligible.
+        requires_credential = bool(option.get("credential_env")) and option.get("provider_id") not in {"ollama"}
+        if option.get("endpoint") and (not requires_credential or option.get("credential_available")):
+            return (0, 0)
+        return (9, 0)
     if method == "api" and option["credential_available"]:
         return (1, 0)
     if method == "cli" and option["executable_available"]:

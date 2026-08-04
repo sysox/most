@@ -63,12 +63,12 @@ class OpenAIAPIAdapter:
     def get_observability_profile(self, configuration: dict[str, Any]) -> Observability:
         return Observability.STRUCTURED_STREAM
 
-    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential_handle: str | None = None) -> HTTPResponse:
+    def execute(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None) -> HTTPResponse:
         errors = self.validate_configuration(configuration)
         if errors:
             raise ValueError("invalid OpenAI configuration: " + "; ".join(errors))
-        if not credential_handle:
-            raise PermissionError("OpenAI execution requires an opaque credential handle")
+        if not credential:
+            raise PermissionError("OpenAI execution requires a credential")
         if self.transport is None:
             raise RuntimeError("no HTTP transport configured")
         options = configuration["adapter_options"]
@@ -82,5 +82,5 @@ class OpenAIAPIAdapter:
         generation_options = request.get("generation_options", {})
         if isinstance(generation_options, dict):
             payload.update(generation_options)
-        headers = {"content-type": "application/json", "authorization": f"Bearer {credential_handle}"}
+        headers = {"content-type": "application/json", "authorization": f"Bearer {credential}"}
         return self.transport(options["base_url"].rstrip("/") + "/responses", headers, payload)
