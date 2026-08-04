@@ -185,6 +185,18 @@ uv run python -m most ai-chat --provider google --model gemini-3.5-flash --route
 Use `--route cli` for subscription-backed local clients such as `claude` or
 `agy`. Use `catalog-audit --show-models` to refresh the live model inventory.
 
+Gemini for Education is recorded as a Google account profile rather than as a
+separate API model. It requires an institution-managed Google Workspace for
+Education account and is used through the Gemini web app or browser route:
+
+```bash
+uv run python -m most --data-root ./application-data browser-chat gemini
+```
+
+Google documents Education core-service protections including no human review
+and no use of data to train models. Confirm the applicable Workspace edition
+and administrator settings before sending institutional or student data.
+
 Filter the catalog by modality:
 
 ```bash

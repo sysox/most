@@ -232,6 +232,22 @@ providers:
 - id: google
   name: Google Gemini / Antigravity
   kind: cloud
+  account_profiles:
+  - id: gemini-education
+    name: Gemini for Education
+    route: browser-chat
+    availability: institution-managed Google Workspace for Education account
+    billing_model: included-with-qualifying-education-edition
+    privacy:
+      human_review: false
+      used_for_model_training: false
+      note: Applies to the institution-managed Gemini for Education core service; verify the institution's edition and administrator settings.
+    source:
+      url: https://edu.google.com/ai/gemini-for-education/
+      checked_at: 2026-08-04
+    notes:
+    - This is an account and policy profile, not a separately discoverable API model.
+    - Use the Gemini web app or the browser-chat route; API availability depends on Workspace and administrator settings.
   access_methods:
   - id: cli
     executable: agy
