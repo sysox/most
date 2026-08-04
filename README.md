@@ -195,6 +195,20 @@ uv run python -m most catalog-options --capability speech
 embedding, image, and speech models cannot be sent accidentally to a text-chat
 route.
 
+Google Gemini capability-specific operations are available through the same
+catalog and keyring:
+
+```bash
+uv run python -m most ai-embed --model models/gemini-embedding-001 --input document.txt --output document.embedding.json
+uv run python -m most ai-image --model models/gemini-3-pro-image-preview --output picture.bin "Create a mountain illustration"
+uv run python -m most ai-speech --model models/gemini-2.5-pro-preview-tts --output speech.bin "Read this sentence aloud"
+uv run python -m most ai-image-analyze --model gemini-3.5-flash --input picture.png "Describe this image"
+```
+
+These commands currently target the Google Gemini API. The catalog validates
+the required capability before sending a request; generated binary output is
+written exactly as returned by the provider, with its MIME type printed.
+
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore
 requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.

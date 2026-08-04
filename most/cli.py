@@ -80,6 +80,22 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--title", default="Unified AI chat")
     unified.add_argument("--no-refresh", action="store_true")
     unified.add_argument("--max-age-hours", type=float, default=24.0)
+    embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
+    _add_capability_task_args(embed, "embedding")
+    embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
+    embed.add_argument("--output", type=Path, help="write the vector as JSON")
+    image = subparsers.add_parser("ai-image", help="generate an image from a prompt")
+    _add_capability_task_args(image, "image")
+    image.add_argument("prompt")
+    image.add_argument("--output", type=Path, default=Path("generated-image.bin"))
+    speech = subparsers.add_parser("ai-speech", help="synthesize speech from text")
+    _add_capability_task_args(speech, "speech")
+    speech.add_argument("text")
+    speech.add_argument("--output", type=Path, default=Path("generated-speech.bin"))
+    image_analysis = subparsers.add_parser("ai-image-analyze", help="analyze an image with a vision-capable chat model")
+    _add_capability_task_args(image_analysis, "chat")
+    image_analysis.add_argument("--input", type=Path, required=True, help="image file to analyze")
+    image_analysis.add_argument("prompt", nargs="?", default="Describe this image.")
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
     catalog_refresh = subparsers.add_parser("catalog-refresh", help="refresh dynamic model inventory and route status")
     catalog_refresh.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
@@ -114,6 +130,16 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--title", default="Provider CLI chat")
     cli_chat.add_argument("--allow-unknown-connectivity", action="store_true", help="approve opaque provider CLI network routing")
     return parser
+
+
+def _add_capability_task_args(command: argparse.ArgumentParser, capability: str) -> None:
+    command.set_defaults(required_capability=capability)
+    command.add_argument("--provider", default="google")
+    command.add_argument("--model", required=True)
+    command.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    command.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
+    command.add_argument("--no-refresh", action="store_true")
+    command.add_argument("--max-age-hours", type=float, default=24.0)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -211,6 +237,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "ai-chat":
         return run_unified_chat(args)
+    if args.command == "ai-embed":
+        return run_embedding(args)
+    if args.command == "ai-image":
+        return run_image_generation(args)
+    if args.command == "ai-speech":
+        return run_speech(args)
+    if args.command == "ai-image-analyze":
+        return run_image_analysis(args)
     if args.command == "browser-chat":
         if args.manual:
             from .manual_browser_chat import run_manual_browser_chat
@@ -292,6 +326,72 @@ def run_unified_chat(args: argparse.Namespace) -> int:
             title=args.title, allow_unknown_connectivity=True,
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")
+
+
+def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object], str]:
+    from .credentials import resolve_provider_credential
+    from .model_options import load_model_options, refresh_if_stale, select_model
+
+    if not args.no_refresh:
+        refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
+    option = select_model(
+        load_model_options(args.catalog, args.discovered), args.provider, args.model, "api",
+        required_capability=args.required_capability,
+    )
+    if option["adapter_type"] != "gemini-api":
+        raise SystemExit("non-text API tasks currently support the Google Gemini API route")
+    credential = resolve_provider_credential(args.provider, option["credential_env"])
+    if not credential:
+        raise SystemExit(f"missing {args.provider} API key; store it with credentials set or provide the environment variable")
+    return option, credential
+
+
+def run_embedding(args: argparse.Namespace) -> int:
+    import json
+
+    from .http_transport import urllib_json_transport
+    from .multimodal import embed
+
+    option, credential = _select_capability_task(args)
+    vector = embed(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input.read_text(encoding="utf-8"))
+    serialized = json.dumps({"model": args.model, "dimensions": len(vector), "values": vector}, indent=2)
+    if args.output:
+        args.output.write_text(serialized + "\n", encoding="utf-8")
+        print(f"embedding written: {args.output} ({len(vector)} dimensions)")
+    else:
+        print(serialized)
+    return 0
+
+
+def run_image_generation(args: argparse.Namespace) -> int:
+    from .http_transport import urllib_json_transport
+    from .multimodal import generate_image
+
+    option, credential = _select_capability_task(args)
+    data, mime = generate_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.prompt)
+    args.output.write_bytes(data)
+    print(f"image written: {args.output} ({mime})")
+    return 0
+
+
+def run_speech(args: argparse.Namespace) -> int:
+    from .http_transport import urllib_json_transport
+    from .multimodal import synthesize_speech
+
+    option, credential = _select_capability_task(args)
+    data, mime = synthesize_speech(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.text)
+    args.output.write_bytes(data)
+    print(f"speech written: {args.output} ({mime})")
+    return 0
+
+
+def run_image_analysis(args: argparse.Namespace) -> int:
+    from .http_transport import urllib_json_transport
+    from .multimodal import analyze_image
+
+    option, credential = _select_capability_task(args)
+    print(analyze_image(urllib_json_transport, str(option["endpoint"]), args.model, credential, args.input, args.prompt))
+    return 0
 
 
 def run_chat(args: argparse.Namespace, *, registry=None) -> int:
