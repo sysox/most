@@ -55,7 +55,9 @@ class MultimodalAdapter:
         prompt = str(options.get("prompt", ""))
 
         if operation == "embedding":
-            text = Path(str(input_path)).read_text(encoding="utf-8")
+            if input_path is None:
+                raise ValueError("embedding input file is required")
+            text = input_path.read_text(encoding="utf-8")
             if provider == "google":
                 value = embed(urllib_json_transport, endpoint, model, credential or "", text)
                 usage = {}

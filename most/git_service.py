@@ -49,6 +49,24 @@ class GitService:
     def status(self) -> str:
         return self.run("status", "--porcelain=v1").stdout
 
+    def changed_paths(self) -> list[str]:
+        """Return changed destination paths, including Git rename targets."""
+        fields = self.run("status", "--porcelain=v1", "-z").stdout.split("\0")
+        paths: list[str] = []
+        index = 0
+        while index < len(fields):
+            entry = fields[index]
+            index += 1
+            if len(entry) < 4:
+                continue
+            status, path = entry[:2], entry[3:]
+            if status and status[0] in {"R", "C"} and index < len(fields):
+                path = fields[index]
+                index += 1
+            if path:
+                paths.append(path)
+        return paths
+
     def diff(self) -> str:
         return self.run("diff", "--no-ext-diff", "--binary").stdout
 

@@ -77,3 +77,19 @@ providers:
     results, _ = audit_catalog(catalog_path, executable_exists=lambda _: False)
     assert results[0].status == "unavailable"
     assert "not found" in results[0].reason
+
+
+def test_audit_allows_unauthenticated_local_api_endpoint(tmp_path: Path):
+    catalog_path = tmp_path / "catalog.yaml"
+    catalog_path.write_text("""
+providers:
+  - id: local-proxy
+    access_methods:
+      - id: api
+        model_discovery:
+          method: GET
+          endpoint: http://127.0.0.1:8000/v1/models
+    models: []
+""", encoding="utf-8")
+    results, _ = audit_catalog(catalog_path, fetch=lambda url, headers: (200, {"data": [{"id": "local-model"}]}))
+    assert results[0].status == "available"

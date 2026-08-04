@@ -10,6 +10,7 @@ from most.multimodal import (
     synthesize_speech,
     transcribe_audio,
 )
+from most.multimodal_adapter import MultimodalAdapter
 from most.openai_compatible import HTTPResponse
 
 
@@ -93,3 +94,14 @@ def test_openai_compatible_embedding_and_image_analysis(tmp_path: Path):
         image_path.unlink(missing_ok=True)
     assert result == "looks good"
     assert image_usage["completion_tokens"] == 2
+
+
+def test_embedding_adapter_rejects_missing_input_path():
+    configuration = {
+        "model_reference": "embedding",
+        "adapter_options": {"endpoint": "http://localhost/v1", "provider_id": "ollama", "operation": "embedding"},
+    }
+    import pytest
+
+    with pytest.raises(ValueError, match="embedding input file is required"):
+        MultimodalAdapter().execute({}, configuration)

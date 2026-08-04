@@ -44,7 +44,12 @@ class PersistenceCoordinator:
         existing = None
         recovered = False
         if path.exists():
-            existing = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            try:
+                existing = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                existing = {}
+            if not isinstance(existing, dict):
+                existing = {}
             if self._existing_lease_active(existing):
                 raise RuntimeError("application-data root already has an active lease")
             path.unlink()
@@ -174,12 +179,24 @@ class PersistenceCoordinator:
         path = self._target(".data-root.lease.yaml")
         if not path.exists():
             return None
-        values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        try:
+            values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return None
+        if not isinstance(values, dict):
+            return None
         lease_fields = set(DataRootLease.__dataclass_fields__)
-        return DataRootLease(**{key: values[key] for key in lease_fields})
+        if not lease_fields <= values.keys():
+            return None
+        try:
+            return DataRootLease(**{key: values[key] for key in lease_fields})
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _existing_lease_active(values: dict[str, Any]) -> bool:
+        if not _lease_heartbeat_active(values):
+            return False
         if values.get("host_identifier") != socket.gethostname():
             return True
         try:
@@ -195,6 +212,17 @@ class PersistenceCoordinator:
         except (PermissionError, KeyError, ValueError):
             return True
         return True
+
+
+def _lease_heartbeat_active(values: dict[str, Any]) -> bool:
+    try:
+        heartbeat = datetime.fromisoformat(str(values["heartbeat_at"]))
+        timeout = float(values["lease_timeout_seconds"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    if heartbeat.tzinfo is None:
+        heartbeat = heartbeat.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - heartbeat).total_seconds() < max(timeout, 0)
 
 
 def _windows_process_exists(process_id: int) -> bool:

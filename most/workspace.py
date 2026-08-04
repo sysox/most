@@ -6,6 +6,7 @@ import hashlib
 import os
 import socket
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -253,11 +254,29 @@ class WorkspaceService:
         path = self.store.root / relative
         if not path.exists():
             return None
-        values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        try:
+            values = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return None
+        if not isinstance(values, dict):
+            return None
         lease_fields = set(WorkspaceLease.__dataclass_fields__)
-        return WorkspaceLease(**{key: values[key] for key in lease_fields})
+        if not lease_fields <= values.keys():
+            return None
+        try:
+            return WorkspaceLease(**{key: values[key] for key in lease_fields})
+        except (TypeError, ValueError):
+            return None
 
     def _lease_is_active(self, lease: WorkspaceLease) -> bool:
+        try:
+            heartbeat = datetime.fromisoformat(lease.heartbeat_at)
+            if heartbeat.tzinfo is None:
+                heartbeat = heartbeat.replace(tzinfo=UTC)
+            if (datetime.now(UTC) - heartbeat).total_seconds() >= max(lease.lease_timeout_seconds, 0):
+                return False
+        except (TypeError, ValueError):
+            return False
         if lease.host_identifier != socket.gethostname():
             return True
         try:

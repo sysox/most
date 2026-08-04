@@ -9,9 +9,11 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 import yaml
@@ -125,7 +127,9 @@ def _audit_api(
         from .credentials import resolve_provider_credential
 
         credential = resolve_provider_credential(provider_id, env_name) or ""
-    if provider_id not in {"ollama"} and not credential:
+    endpoint_host = urlparse(str(discovery.get("endpoint", ""))).hostname
+    local_endpoint = _is_local_endpoint(endpoint_host)
+    if provider_id not in {"ollama"} and not credential and not local_endpoint:
         return [AuditResult(provider_id, str(method.get("id", "unknown")), None, "unknown", f"missing {env_name or 'provider credential'}")]
     headers = {"accept": "application/json"}
     if credential:
@@ -176,6 +180,18 @@ def _audit_api(
                 reason = "model not returned by provider"
             results.append(AuditResult(provider_id, route, model_id, model_status, reason))
     return results
+
+
+def _is_local_endpoint(host: str | None) -> bool:
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        parsed = ip_address(host)
+    except ValueError:
+        return False
+    return parsed.is_loopback or parsed.is_private
 
 
 def _model_ids(body: Any) -> set[str]:

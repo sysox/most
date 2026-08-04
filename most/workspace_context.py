@@ -47,8 +47,7 @@ class WorkspaceContextSelector:
         if strategy == "EXPLICIT_SELECTION":
             candidates = [self.repository / path for path in explicit_paths]
         elif strategy in {"CHANGED_FILES", "GIT_DIFF_ONLY", "HYBRID"}:
-            changed = [line[3:] for line in self.git.status().splitlines() if len(line) >= 4]
-            candidates = [self.repository / path for path in changed]
+            candidates = [self.repository / path for path in self.git.changed_paths()]
         elif strategy in {"REPOSITORY_MAP", "SYMBOL_SUMMARY", "SNIPPET_WINDOWS"}:
             candidates = list(self.repository.rglob("*"))
         elif strategy == "ADAPTER_NATIVE":

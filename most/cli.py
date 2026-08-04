@@ -337,8 +337,13 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
         ))
     if adapter_type == "provider-cli":
         from .cli_chat import run_cli_chat
+        executable = {"openai": "codex", "anthropic": "claude", "google": "agy"}.get(str(option["provider_id"]))
+        if executable is None:
+            raise SystemExit(
+                f"provider {option['provider_id']!r} has no configured CLI executable; use an API route or configure a provider-specific CLI"
+            )
         return run_cli_chat(argparse.Namespace(
-            data_root=args.data_root, prompt=args.prompt, provider={"openai": "codex", "anthropic": "claude", "google": "agy"}[option["provider_id"]],
+            data_root=args.data_root, prompt=args.prompt, provider=executable,
             title=args.title, allow_unknown_connectivity=True,
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")

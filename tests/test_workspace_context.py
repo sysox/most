@@ -25,3 +25,18 @@ def test_workspace_context_records_hash_and_applies_limits(tmp_path: Path):
     assert selection.files[0].sha256
     assert selection.files[0].size == 1
     assert selection.excluded_paths == ("b.py",)
+
+
+def test_changed_files_uses_rename_destination(tmp_path: Path):
+    from most.git_service import GitService
+
+    git = GitService(tmp_path)
+    git.run("init")
+    git.run("config", "user.email", "most@example.invalid")
+    git.run("config", "user.name", "MOST")
+    (tmp_path / "old.py").write_text("print('ok')\n", encoding="utf-8")
+    git.run("add", "old.py")
+    git.run("commit", "-m", "initial")
+    (tmp_path / "old.py").rename(tmp_path / "new.py")
+    selection = WorkspaceContextSelector(tmp_path).select("CHANGED_FILES")
+    assert [item.path for item in selection.files] == ["new.py"]

@@ -402,12 +402,14 @@ class ExecutionManager:
             self._event(execution, status_event)
         observed: list[StreamEvent] = []
         previous_hash = None
+        sequence_number = len(self.store.read_jsonl(f"executions/{execution.id}/events.jsonl"))
         try:
             self.journal.record_request(execution.session_id, request)
             for item in adapter.stream(record_payload(request, record_type="AI_REQUEST"), record_payload(configuration, record_type="AI_CONFIGURATION"), credential):
+                sequence_number += 1
                 event = create_stream_event(
                     execution.id,
-                    len(self.store.read_jsonl(f"executions/{execution.id}/events.jsonl")) + 1,
+                    sequence_number,
                     str(item.get("event_type", "TextDeltaEvent")),
                     dict(item),
                     str(item.get("observation_source", "PROVIDER_EVENT")),
