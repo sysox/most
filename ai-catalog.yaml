@@ -1,157 +1,193 @@
-# Canonical provider and model catalog for MOST.
-#
-# This is a versioned baseline, not a guarantee that every model is available
-# to every account.  Discovery metadata should be refreshed from the listed
-# source before important or cost-sensitive work.
 catalog_version: 1
 catalog_name: MOST AI provider catalog
 last_reviewed: 2026-08-04
 currency: USD
 token_unit: 1M_tokens
-
 providers:
-  - id: ollama
-    name: Ollama
-    kind: local
-    access_methods:
-      - id: openai-compatible
-        endpoint: http://127.0.0.1:11434/v1
-        model_discovery:
-          method: GET
-          endpoint: http://127.0.0.1:11434/api/tags
+- id: ollama
+  name: Ollama
+  kind: local
+  access_methods:
+  - id: openai-compatible
+    endpoint: http://127.0.0.1:11434/v1
+    model_discovery:
+      method: GET
+      endpoint: http://127.0.0.1:11434/api/tags
+  pricing:
+    billing_model: local
+    user_cost: 0
+    per_1m_tokens:
+      input: 0
+      output: 0
+      cached_input: 0
+    source:
+      url: https://ollama.com/
+      checked_at: 2026-08-04
+  models:
+  - id: granite4.1:3b
+    status: available
+    capabilities:
+    - chat
+  - id: ministral-3:8b
+    status: available
+    capabilities:
+    - chat
+  - id: embeddinggemma:latest
+    status: available
+    capabilities:
+    - embedding
+- id: einfra
+  name: CERIT-SC / e-INFRA CZ
+  kind: einfra
+  access_methods:
+  - id: openai-compatible
+    endpoint: https://llm.ai.e-infra.cz/v1
+    model_discovery:
+      method: GET
+      endpoint: https://llm.ai.e-infra.cz/v1/model/info
+  pricing:
+    billing_model: institutional
+    user_cost: 0
+    per_1m_tokens:
+      input: null
+      output: null
+      cached_input: null
+    note: No direct per-token user charge is documented; service limits apply.
+    source:
+      url: https://docs.cerit.io/en/docs/ai-as-a-service/chat-ai
+      checked_at: 2026-08-04
+  models:
+  - id: mini
+    status: available
+    kind: maintained-alias
+    resolves_to: gpt-oss-120b
+    capabilities:
+    - chat
+    - tools
+  - id: coder
+    status: available
+    kind: maintained-alias
+    resolves_to: qwen3.5-122b
+    capabilities:
+    - chat
+    - coding
+  - id: agentic
+    status: available
+    kind: maintained-alias
+    resolves_to: qwen3.5-122b
+    capabilities:
+    - chat
+    - tools
+    - coding
+  - id: thinker
+    status: available
+    kind: maintained-alias
+    resolves_to: kimi-k2.6
+    capabilities:
+    - chat
+    - reasoning
+  notes:
+  - Exact model versions can be replaced without notice.
+  - Use maintained aliases when reproducibility of the exact model is not required.
+- id: anthropic
+  name: Anthropic / Claude
+  kind: cloud
+  access_methods:
+  - id: cli
+    executable: claude
+    model_argument: --model
+  - id: api
+    endpoint: https://api.anthropic.com
+    model_discovery:
+      method: GET
+      endpoint: https://api.anthropic.com/v1/models
+  pricing:
+    billing_model: usage
+    per_1m_tokens: null
+    source:
+      url: https://www.anthropic.com/pricing
+      checked_at: 2026-08-04
+      note: Verify current model and tier pricing before updating values.
+  models:
+  - id: claude-opus
+    status: available
+    cost_tier: high
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+  - id: claude-sonnet
+    status: available
+    cost_tier: medium
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+  - id: claude-haiku
+    status: available
+    cost_tier: low
+    capabilities:
+    - chat
+    - coding
+- id: openai
+  name: OpenAI / Codex
+  kind: cloud
+  access_methods:
+  - id: cli
+    executable: codex
+    model_argument: --model
+  - id: api
+    endpoint: https://api.openai.com/v1
+    model_discovery:
+      method: GET
+      endpoint: https://api.openai.com/v1/models
+  pricing:
+    billing_model: usage-or-subscription
+    per_1m_tokens: null
+    source:
+      url: https://openai.com/api/pricing/
+      checked_at: 2026-08-04
+  models:
+  - id: gpt-5.6
+    status: available
+    kind: maintained-alias
+    resolves_to: gpt-5.6-sol
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+    - tools
+  - id: gpt-5.6-sol
+    status: available
+    capabilities:
+    - chat
+    - reasoning
+    - coding
+    - tools
     pricing:
-      billing_model: local
-      user_cost: 0
       per_1m_tokens:
-        input: 0
-        output: 0
-        cached_input: 0
+        input: 5
+        output: 30
+        cached_input: 0.5
       source:
-        url: https://ollama.com/
+        url: https://developers.openai.com/api/docs/pricing
         checked_at: 2026-08-04
-    models:
-      - id: granite4.1:3b
-        status: available
-        capabilities: [chat]
-      - id: ministral-3:8b
-        status: available
-        capabilities: [chat]
-      - id: embeddinggemma:latest
-        status: available
-        capabilities: [embedding]
-
-  - id: einfra
-    name: CERIT-SC / e-INFRA CZ
-    kind: einfra
-    access_methods:
-      - id: openai-compatible
-        endpoint: https://llm.ai.e-infra.cz/v1
-        model_discovery:
-          method: GET
-          endpoint: https://llm.ai.e-infra.cz/v1/model/info
-    pricing:
-      billing_model: institutional
-      user_cost: 0
-      per_1m_tokens:
-        input: null
-        output: null
-        cached_input: null
-      note: No direct per-token user charge is documented; service limits apply.
-      source:
-        url: https://docs.cerit.io/en/docs/ai-as-a-service/chat-ai
-        checked_at: 2026-08-04
-    models:
-      - id: mini
-        status: available
-        kind: maintained-alias
-        resolves_to: gpt-oss-120b
-        capabilities: [chat, tools]
-      - id: coder
-        status: available
-        kind: maintained-alias
-        resolves_to: qwen3.5-122b
-        capabilities: [chat, coding]
-      - id: agentic
-        status: available
-        kind: maintained-alias
-        resolves_to: qwen3.5-122b
-        capabilities: [chat, tools, coding]
-      - id: thinker
-        status: available
-        kind: maintained-alias
-        resolves_to: kimi-k2.6
-        capabilities: [chat, reasoning]
-    notes:
-      - Exact model versions can be replaced without notice.
-      - Use maintained aliases when reproducibility of the exact model is not required.
-
-  - id: anthropic
-    name: Anthropic / Claude
-    kind: cloud
-    access_methods:
-      - id: cli
-        executable: claude
-        model_argument: --model
-      - id: api
-        endpoint: https://api.anthropic.com
-        model_discovery:
-          method: GET
-          endpoint: https://api.anthropic.com/v1/models
-    pricing:
-      billing_model: usage
-      per_1m_tokens: null
-      source:
-        url: https://www.anthropic.com/pricing
-        checked_at: 2026-08-04
-        note: Verify current model and tier pricing before updating values.
-    models:
-      - id: claude-opus
-        status: available
-        cost_tier: high
-        capabilities: [chat, reasoning, coding]
-      - id: claude-sonnet
-        status: available
-        cost_tier: medium
-        capabilities: [chat, reasoning, coding]
-      - id: claude-haiku
-        status: available
-        cost_tier: low
-        capabilities: [chat, coding]
-
-  - id: openai
-    name: OpenAI / Codex
-    kind: cloud
-    access_methods:
-      - id: cli
-        executable: codex
-        model_argument: --model
-      - id: api
-        endpoint: https://api.openai.com/v1
-        model_discovery:
-          method: GET
-          endpoint: https://api.openai.com/v1/models
-    pricing:
-      billing_model: usage-or-subscription
-      per_1m_tokens: null
-      source:
-        url: https://openai.com/api/pricing/
-        checked_at: 2026-08-04
-    models: []
-
-  - id: google
-    name: Google Gemini / Antigravity
-    kind: cloud
-    access_methods:
-      - id: cli
-        executable: agy
-        model_argument: --model
-        model_discovery:
-          method: CLI
-          command: agy models
-    pricing:
-      billing_model: subscription-or-api
-      per_1m_tokens: null
-      source:
-        url: https://ai.google.dev/gemini-api/docs/pricing
-        checked_at: 2026-08-04
-    models: []
+- id: google
+  name: Google Gemini / Antigravity
+  kind: cloud
+  access_methods:
+  - id: cli
+    executable: agy
+    model_argument: --model
+    model_discovery:
+      method: CLI
+      command: agy models
+  pricing:
+    billing_model: subscription-or-api
+    per_1m_tokens: null
+    source:
+      url: https://ai.google.dev/gemini-api/docs/pricing
+      checked_at: 2026-08-04
+  models: []
+last_audited: '2026-08-04'
+pricing_last_updated: '2026-08-04'

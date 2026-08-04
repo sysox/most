@@ -16,6 +16,8 @@ import pytest
 
 from most.cli_chat import ProviderCLIAdapter
 from most.http_transport import urllib_json_transport
+from most.openai_api import OpenAIAPIAdapter
+from most.openai_api import normalize_response as normalize_openai_response
 from most.openai_compatible import (
     HTTPResponse,
     OpenAICompatibleAdapter,
@@ -62,6 +64,18 @@ def _providers() -> list[Provider]:
             },
             os.environ.get("CERIT_API_KEY"),
         ),
+        Provider(
+            "openai",
+            OpenAIAPIAdapter(urllib_json_transport),
+            {
+                "model_reference": selected_model or os.environ.get("MOST_OPENAI_MODEL", "gpt-5.6"),
+                "adapter_options": {
+                    "base_url": os.environ.get("MOST_OPENAI_BASE_URL", "https://api.openai.com/v1")
+                },
+            },
+            os.environ.get("OPENAI_API_KEY"),
+            response_kind="responses",
+        ),
         *[
             Provider(
                 provider,
@@ -80,6 +94,8 @@ def _skip_reason(provider: Provider) -> str | None:
     if provider.name == "einfra" and not provider.credential:
         variable = "CERIT_API_KEY"
         return f"missing provider credential ({variable})"
+    if provider.name == "openai" and not provider.credential:
+        return "missing provider credential (OPENAI_API_KEY)"
     return None
 
 
@@ -106,6 +122,10 @@ def test_provider_can_return_assistant_text(provider: Provider):
 
     if provider.response_kind == "cli":
         content = str(response["content"]).strip()
+    elif provider.response_kind == "responses":
+        assert isinstance(response, HTTPResponse)
+        normalized = normalize_openai_response(response)
+        content = "".join(str(part.get("text", "")) for part in normalized["content_parts"] if isinstance(part, dict)).strip()
     else:
         assert isinstance(response, HTTPResponse)
         normalized = normalize_response(response)

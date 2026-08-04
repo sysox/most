@@ -38,6 +38,10 @@ official pages used to refresh it. Exact cloud prices and live e-INFRA model
 availability should be refreshed before cost-sensitive or reproducibility-
 sensitive work.
 
+`ai-catalog.yaml` is the stable curated baseline. `ai-discovered.yaml` is a
+generated snapshot of dynamic provider models and should be refreshed regularly;
+it is not the place for manually maintained pricing.
+
 The live provider test is opt-in. Test all configured providers and fail if a
 provider is unavailable or missing credentials:
 
@@ -51,6 +55,103 @@ Test one installed provider instead:
 MOST_RUN_PROVIDER_INTEGRATION=1 MOST_PROVIDER=claude \
   uv run pytest tests/test_all_providers.py
 ```
+
+Audit the catalog routes and model discovery endpoints from the current
+machine. Missing credentials are reported as `unknown`; they are not treated
+as provider failures. Add `--update` only when you want confirmed model
+statuses written back to `ai-catalog.yaml`:
+
+```bash
+uv run python -m most catalog-audit
+uv run python -m most catalog-audit --update
+```
+
+The normal update keeps the catalog curated. To import every discovered API
+model, use the explicit sync option:
+
+```bash
+uv run python -m most catalog-audit \
+  --update --sync-models
+```
+
+Synced models receive availability and capability metadata, but pricing remains
+`unknown` until a reviewed pricing update is applied.
+
+For routine use, `catalog-audit` automatically writes dynamic discovery to
+`ai-discovered.yaml`. This keeps rotating provider models separate from the
+stable curated catalog while making them available to selection and display
+tooling. Use `--no-discovered` to disable the generated snapshot.
+
+The shorter refresh command is equivalent for daily use:
+
+```bash
+uv run python -m most catalog-refresh --show-models
+```
+
+It refreshes route/model availability and writes `ai-discovered.yaml`. The
+snapshot includes conservative task hints such as `coding`, `reasoning`,
+`semantic-search`, and `transcription`; these are heuristics, not benchmark
+claims. Pricing remains a separate reviewed update.
+
+To inspect exact e-INFRA model names, ranked with reasoning/pro variants and
+newer-looking model versions first:
+
+```bash
+uv run python -m most catalog-audit --provider einfra --show-models
+```
+
+The ranking is only for readability; the provider’s live metadata remains the
+source of truth for actual availability and model quality.
+
+For a daily Linux refresh, run the command from the repository directory using
+a service environment that securely provides API credentials:
+
+```cron
+0 3 * * * cd /home/sysox/Projects/most && /usr/bin/uv run python -m most catalog-refresh
+```
+
+Pricing is refreshed separately and only from reviewed provider sources. The
+checked-in [pricing-update.yaml](pricing-update.yaml) is the current example
+snapshot; validate it before applying future changes.
+
+Pricing is maintained separately from availability. Create a reviewed update
+file using this format:
+
+```yaml
+prices:
+  - provider_id: openai
+    model_id: gpt-5.6-sol
+    per_1m_tokens:
+      input: 5
+      output: 30
+      cached_input: 0.5
+    source:
+      url: https://developers.openai.com/api/docs/pricing
+      checked_at: 2026-08-04
+```
+
+Validate first, then explicitly write the update:
+
+```bash
+uv run python -m most catalog-pricing --source pricing-update.yaml
+uv run python -m most catalog-pricing --source pricing-update.yaml --update
+```
+
+Prices must have an HTTPS source and review date. Unknown pricing remains
+`unknown`; local providers are zero-cost and institutional services do not
+claim a per-token user price.
+
+OpenAI GPT is available through the official Responses API. Set the key only in
+the process environment; it is not written to MOST configuration or payloads:
+
+```bash
+read -rsp "OpenAI API key: " OPENAI_API_KEY; export OPENAI_API_KEY; echo
+uv run python -m most --data-root ./application-data gpt-chat \
+  --model gpt-5.6 "Hello from MOST"
+```
+
+Use `--api-key-env` to select a different environment variable and `--base-url`
+for a compatible gateway. The default endpoint is `https://api.openai.com/v1`.
 
 The live test uses already authenticated local CLIs for Claude, Codex, Gemini,
 and Antigravity. e-INFRA uses its OpenAI-compatible API route and therefore

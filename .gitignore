@@ -12,6 +12,7 @@ coverage.xml
 .ai-journal/
 browser-profiles/
 application-data/
+ai-discovered.yaml
 artifacts/
 *.secret
 *.key

@@ -107,12 +107,14 @@ def create_default_registry() -> AdapterRegistry:
     from .cli_adapter import CLIAdapter
     from .cloud_adapter import CloudAPIAdapter
     from .http_transport import urllib_json_transport
+    from .openai_api import OpenAIAPIAdapter
     from .openai_compatible import OpenAICompatibleAdapter
     from .paths import managed_browser_profile_root
 
     registry = AdapterRegistry()
     registry.register("openai-compatible", OpenAICompatibleAdapter(urllib_json_transport))
     registry.register("official-cloud-api", CloudAPIAdapter(urllib_json_transport))
+    registry.register("openai-api", OpenAIAPIAdapter(urllib_json_transport))
     # Browser execution remains conservative until a selector pack and driver are supplied.
     registry.register("browser", BrowserAdapter(IsolatedBrowserProfileService(managed_browser_profile_root())))
     registry.register("cli", CLIAdapter())

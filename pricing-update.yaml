@@ -1,0 +1,11 @@
+# Reviewed pricing snapshot. Add new entries only from official provider sources.
+prices:
+  - provider_id: openai
+    model_id: gpt-5.6-sol
+    per_1m_tokens:
+      input: 5
+      output: 30
+      cached_input: 0.5
+    source:
+      url: https://developers.openai.com/api/docs/pricing
+      checked_at: 2026-08-04
