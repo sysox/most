@@ -47,6 +47,15 @@ uv run python -m most ai-chat \
 
 Use `--route auto` (the default) to let MOST select an available route.
 
+For a local vLLM, LM Studio, or other OpenAI-compatible service, add its
+endpoint as an `openai-compatible` catalog route. Localhost/private endpoints
+can be audited without an API key; cloud endpoints still require their
+configured credential:
+
+```bash
+uv run python -m most catalog-audit --provider ollama --show-models
+```
+
 ## 4. Use a subscription-backed CLI
 
 ```bash

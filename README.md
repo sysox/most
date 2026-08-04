@@ -78,8 +78,9 @@ and subscription CLI routes are tested separately.
 
 Audit the catalog routes and model discovery endpoints from the current
 machine. Missing credentials are reported as `unknown`; they are not treated
-as provider failures. Add `--update` only when you want confirmed model
-statuses written back to `ai-catalog.yaml`:
+as provider failures. Localhost and private-network OpenAI-compatible
+endpoints may be audited without an API key. Add `--update` only when you want
+confirmed model statuses written back to `ai-catalog.yaml`:
 
 ```bash
 uv run python -m most catalog-audit
@@ -277,8 +278,10 @@ requires `CERIT_API_KEY`; Ollama uses its local endpoint and needs no key.
 
 The `chat` command uses the local OpenAI-compatible endpoint at
 `http://127.0.0.1:11434/v1` by default, so it works with Ollama without an API
-key. Pass one prompt for a single turn or omit the prompt for an interactive
-session:
+key. The same adapter pattern can be used for a local vLLM, LM Studio, or
+other OpenAI-compatible proxy when its endpoint and model are represented in
+`ai-catalog.yaml`; credentials are optional for local endpoints. Pass one
+prompt for a single turn or omit the prompt for an interactive session:
 
 ```bash
 uv run python -m most --data-root ./application-data chat --model granite4.1:3b "Hello"
