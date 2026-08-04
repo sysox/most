@@ -342,7 +342,7 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
     if not args.no_refresh:
         refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
     option = select_model(
-        load_model_options(args.catalog, args.discovered), args.provider, args.model, "api",
+        load_model_options(args.catalog, args.discovered), args.provider, args.model, "auto",
         required_capability=args.required_capability,
         required_input_modality=args.required_input_modality,
         required_output_modality=args.required_output_modality,
