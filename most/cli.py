@@ -4,6 +4,7 @@ import argparse
 import getpass
 import json
 import os
+import sys
 from pathlib import Path
 
 from .adapters import create_default_registry
@@ -110,6 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     catalog_refresh.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     catalog_refresh.add_argument("--no-discovered", action="store_true")
     catalog_refresh.add_argument("--show-routes", action="store_true")
+    health = subparsers.add_parser("catalog-health", help="recheck models recorded after provider failures")
+    health.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    health.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     credentials = subparsers.add_parser("credentials", help="manage provider API keys in the OS keyring")
     credential_commands = credentials.add_subparsers(dest="credential_command", required=True)
     credential_set = credential_commands.add_parser("set", help="store or replace a provider API key")
@@ -203,6 +207,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.update:
             print(f"updated: {args.catalog}")
         return 0
+    if args.command == "catalog-health":
+        from .provider_health import check_recorded_failures, format_health
+        print(format_health(check_recorded_failures(args.data_root, args.catalog, args.discovered)))
+        return 0
     if args.command == "credentials":
         from .credentials import CredentialReference, KeyringCredentialStore
         store = KeyringCredentialStore()
@@ -287,7 +295,7 @@ def _format_options(options: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
-def run_unified_chat(args: argparse.Namespace) -> int:
+def _run_unified_chat(args: argparse.Namespace) -> int:
     from .model_options import load_model_options, refresh_if_stale, select_model
 
     if not args.no_refresh:
@@ -334,6 +342,29 @@ def run_unified_chat(args: argparse.Namespace) -> int:
             title=args.title, allow_unknown_connectivity=True,
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")
+
+
+def run_unified_chat(args: argparse.Namespace) -> int:
+    try:
+        return _run_unified_chat(args)
+    except (ConnectionError, OSError, RuntimeError, TimeoutError) as exc:
+        from .model_options import load_model_options, select_model
+        from .provider_health import format_health, record_failure
+
+        try:
+            option = select_model(
+                load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route,
+                required_capability="chat",
+            )
+            record = record_failure(
+                args.data_root, args.catalog, args.discovered,
+                provider_id=str(option["provider_id"]), model_id=args.model,
+                route=str(option["access_method"]), error=str(exc),
+            )
+            print(f"provider health: {format_health([record])}", file=sys.stderr)
+        except (ConnectionError, OSError, RuntimeError, TimeoutError, ValueError, KeyError, TypeError) as health_error:
+            print(f"provider health check failed: {health_error}", file=sys.stderr)
+        raise
 
 
 def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object], str]:

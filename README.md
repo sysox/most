@@ -91,6 +91,18 @@ The shorter refresh command is equivalent for daily use:
 uv run python -m most catalog-refresh --show-models
 ```
 
+When a unified API chat request fails, MOST records the failure in
+`application-data/provider-health.yaml`, rechecks the provider inventory, and
+prints replacement candidates without silently changing models. Recheck all
+recorded failures manually with:
+
+```bash
+uv run python -m most catalog-health
+```
+
+This health check uses provider model discovery; it does not send an extra chat
+probe or incur an additional model request.
+
 It refreshes route/model availability and writes `ai-discovered.yaml`. The
 snapshot includes conservative task hints such as `coding`, `reasoning`,
 `semantic-search`, and `transcription`; these are heuristics, not benchmark

@@ -11,6 +11,7 @@ uv run python -m most catalog-options --capability chat
 uv run python -m most catalog-options --capability embedding
 uv run python -m most catalog-options --capability image
 uv run python -m most catalog-options --capability speech
+uv run python -m most catalog-health
 ```
 
 Typical input/output mappings are:
