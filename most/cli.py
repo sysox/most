@@ -638,7 +638,9 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
 def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
     """Run a journaled CERIT-SC chat using an environment-provided API key."""
     from .credentials import resolve_provider_credential
-    _enforce_einfra_model_sensitivity(args.model, getattr(args, "sensitivity_tier", "normal"), args.catalog)
+    _enforce_einfra_model_sensitivity(
+        args.model, getattr(args, "sensitivity_tier", "normal"), getattr(args, "catalog", Path("ai-catalog.yaml")),
+    )
     credential = resolve_provider_credential("einfra", args.api_key_env)
     if not credential:
         raise SystemExit(f"missing CERIT API key; set ${args.api_key_env} without putting it in configuration files")

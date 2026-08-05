@@ -95,6 +95,12 @@ def test_cli_chat_sensitive_einfra_guard_uses_catalog():
         _enforce_einfra_model_sensitivity("unknown-model", "sensitive", Path("ai-catalog.yaml"))
 
 
+def test_cerit_chat_sensitive_guard_accepts_legacy_namespace_without_catalog():
+    from most.cli import _enforce_einfra_model_sensitivity
+
+    _enforce_einfra_model_sensitivity("mini", "sensitive", Path("ai-catalog.yaml"))
+
+
 def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):
     from most import cli
     from most.adapters import Connectivity
