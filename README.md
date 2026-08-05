@@ -65,6 +65,8 @@ framing is disabled in this mode so integrations do not need to scrape stdout.
 Pass `--session-id <id>` to append a stage to an existing MOST journal
 session. This reuses the journal identity; provider conversation memory is
 not assumed and callers must still supply the required context.
+For Claude CLI stages, the same UUID is also passed to Claude as its session
+ID; a later `--session-id` continuation uses Claude's `--resume` flag.
 
 See [ai-map.md](ai-map.md) for the quick provider map and
 [the detailed AI provider guide](docs/ai-provider-guide.md) for official links,

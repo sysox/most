@@ -43,15 +43,20 @@ def validate_cli_workspace_path(workspace: Path, data_root: Path) -> Path:
     return candidate
 
 
-def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[str, ...]:
+def command_for(provider: str, prompt: str, *, writable: bool = False,
+                session_id: str | None = None, resume: bool = False) -> tuple[str, ...]:
     if provider == "codex":
         if writable:
             return ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", prompt)
         return ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", prompt)
     if provider == "claude":
+        arguments = ["-p"]
         if writable:
-            return ("-p", "--permission-mode", "acceptEdits", prompt)
-        return ("-p", prompt)
+            arguments.extend(["--permission-mode", "acceptEdits"])
+        if session_id:
+            arguments.extend(["--resume" if resume else "--session-id", session_id])
+        arguments.append(prompt)
+        return tuple(arguments)
     if writable:
         raise ValueError(f"writable mode is not implemented for {provider}")
     if provider == "gemini":
@@ -159,7 +164,12 @@ class ProviderCLIAdapter:
     def execute(self, request, configuration, credential=None):
         messages = request.get("messages", [])
         prompt = _transcript_prompt(messages)
-        arguments = list(command_for(self.provider, prompt, writable=self.writable))
+        adapter_options = configuration.get("adapter_options", {})
+        arguments = list(command_for(
+            self.provider, prompt, writable=self.writable,
+            session_id=str(adapter_options["session_id"]) if adapter_options.get("session_id") else None,
+            resume=bool(adapter_options.get("resume_provider_session", False)),
+        ))
         runtime_configuration = {
             **configuration,
             "adapter_options": {**configuration.get("adapter_options", {}), "arguments": arguments},
@@ -278,6 +288,8 @@ def run_cli_chat(args: Namespace) -> int:
             "credential_env_vars": [value for value in (credential_env_var, "MOST_MCP_AUTH") if value],
             "mcp_servers": mcp_servers,
             "opencode_model": model,
+            "session_id": session.id,
+            "resume_provider_session": bool(getattr(args, "session_id", None)),
         },
     )
     ConfigurationService(args.data_root).save(configuration)

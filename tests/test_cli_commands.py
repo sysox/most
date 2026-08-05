@@ -110,6 +110,8 @@ def test_provider_cli_command_mapping():
 
     assert command_for("codex", "hello")[:5] == ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check")
     assert command_for("claude", "hello") == ("-p", "hello")
+    assert command_for("claude", "hello", session_id="session-1") == ("-p", "--session-id", "session-1", "hello")
+    assert command_for("claude", "hello", session_id="session-1", resume=True) == ("-p", "--resume", "session-1", "hello")
     assert command_for("gemini", "hello") == ("-p", "hello")
     assert command_for("agy", "hello") == ("--output-format", "text", "--sandbox", "--print", "hello")
     assert command_for("opencode", "hello") == ("run", "hello")
