@@ -20,7 +20,7 @@ def run_native_chat(args: Namespace, *, provider: str, adapter_type: str, base_u
         raise SystemExit(f"missing {provider} API key; set ${args.api_key_env} or store it in the keyring")
     root = Path(args.data_root)
     sessions = SessionService(root)
-    session = sessions.create(args.title)
+    session = sessions.open(args.session_id) if getattr(args, "session_id", None) else sessions.create(args.title)
     configuration = AIConfiguration(
         name=f"{provider}: {args.model}", provider_id=provider, access_method_id="api",
         model_reference=args.model, location="provider-cloud", network="public-internet",

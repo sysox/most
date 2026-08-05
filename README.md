@@ -62,6 +62,9 @@ For machine-driven stages, `cli-chat`, `ai-chat`, and `cerit-chat` accept
 `--json` and emit one JSON object containing `content`, `session_id`,
 `profile`, `pipeline_id`, `stage_index`, and `operation_id`. Human-readable
 framing is disabled in this mode so integrations do not need to scrape stdout.
+Pass `--session-id <id>` to append a stage to an existing MOST journal
+session. This reuses the journal identity; provider conversation memory is
+not assumed and callers must still supply the required context.
 
 See [ai-map.md](ai-map.md) for the quick provider map and
 [the detailed AI provider guide](docs/ai-provider-guide.md) for official links,

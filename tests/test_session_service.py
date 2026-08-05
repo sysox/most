@@ -32,3 +32,11 @@ def test_duplicate_result_cannot_overwrite_journal(tmp_path: Path):
     service.add_result(result, "first")
     with pytest.raises(ValueError):
         service.add_result(result, "second")
+
+
+def test_session_service_opens_existing_session(tmp_path: Path):
+    created = SessionService(tmp_path).create("shared")
+    opened = SessionService(tmp_path).open(created.id)
+    assert opened.id == created.id
+    assert opened.title == "shared"
+    assert opened.active_result_id is None

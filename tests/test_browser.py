@@ -96,6 +96,7 @@ def test_tandem_journal_context_flags_are_available_on_cli_commands():
         args = build_parser().parse_args(arguments)
         assert (args.profile, args.pipeline_id, args.stage_index) == ("coding", "pipe-1", 1)
         assert args.json is False
+        assert args.session_id is None
 
 
 def test_cli_chat_json_flag_is_available_for_stage_commands():
@@ -104,6 +105,11 @@ def test_cli_chat_json_flag_is_available_for_stage_commands():
         if command == "ai-chat":
             arguments += ["--model", "mini"]
         assert build_parser().parse_args(arguments).json is True
+
+
+def test_stage_commands_accept_session_id():
+    args = build_parser().parse_args(["cli-chat", "codex", "--session-id", "session-1"])
+    assert args.session_id == "session-1"
 
 
 def test_cli_chat_supports_agent_alias():

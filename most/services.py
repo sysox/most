@@ -113,6 +113,30 @@ class SessionService:
         self.journal.initialize(session.id, record_payload(session, record_type="AI_SESSION"))
         return session
 
+    def open(self, session_id: str) -> AISession:
+        """Open an existing journal session for an explicit continuation."""
+        if not isinstance(session_id, str) or not session_id.strip() or any(
+            char in session_id for char in ("/", "\\")
+        ):
+            raise ValueError("session_id must be a non-empty path-safe identifier")
+        import yaml
+        path = self.store.root / "sessions" / session_id / "session.yaml"
+        if not path.is_file():
+            raise ValueError(f"session not found: {session_id}")
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise TypeError(f"session record is invalid: {session_id}")
+        payload = {key: value for key, value in payload.items() if key in AISession.__dataclass_fields__}
+        payload["id"] = session_id
+        if isinstance(payload.get("mode"), str):
+            payload["mode"] = SessionMode(payload["mode"])
+        session = AISession(**payload)
+        # Existing result indexes are not loaded by a one-shot command. The
+        # next stage supplies its own envelope, so do not claim a parent link.
+        session.active_result_id = None
+        self.sessions[session.id] = session
+        return session
+
     def list(self) -> list[dict[str, object]]:
         import yaml
         directory = self.store.root / "sessions"

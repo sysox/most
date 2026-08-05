@@ -262,7 +262,7 @@ def run_cli_chat(args: Namespace) -> int:
         sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
         sandbox.mkdir(parents=True, exist_ok=True)
     sessions = SessionService(args.data_root)
-    session = sessions.create(args.title)
+    session = sessions.open(args.session_id) if getattr(args, "session_id", None) else sessions.create(args.title)
     configuration = AIConfiguration(
         name=f"CLI: {args.provider}",
         provider_id=args.provider,

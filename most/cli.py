@@ -61,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     cerit_chat.add_argument("--pipeline-id")
     cerit_chat.add_argument("--stage-index", type=int)
     cerit_chat.add_argument("--operation-id")
+    cerit_chat.add_argument("--session-id", help="continue an existing MOST journal session")
     cerit_chat.add_argument("--json", action="store_true", help="print one structured stage result")
     cerit_chat.add_argument("--title", default="CERIT AI chat")
     gpt_chat = subparsers.add_parser("gpt-chat", help="communicate with OpenAI through the official Responses API")
@@ -109,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--pipeline-id")
     unified.add_argument("--stage-index", type=int)
     unified.add_argument("--operation-id")
+    unified.add_argument("--session-id", help="continue an existing MOST journal session")
     unified.add_argument("--json", action="store_true", help="print one structured stage result")
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
     _add_capability_task_args(embed, "embedding", output_modality="embedding")
@@ -194,6 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--pipeline-id")
     cli_chat.add_argument("--stage-index", type=int)
     cli_chat.add_argument("--operation-id")
+    cli_chat.add_argument("--session-id", help="continue an existing MOST journal session")
     cli_chat.add_argument("--json", action="store_true", help="print one structured stage result")
     cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
                           help="attach an e-INFRA MCP server to Claude (repeatable)")
@@ -417,7 +420,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
             operation_id=getattr(args, "operation_id", None),
-            json=getattr(args, "json", False),
+            json=getattr(args, "json", False), session_id=getattr(args, "session_id", None),
         ))
     if adapter_type in {"anthropic-api", "gemini-api"}:
         from .anthropic_api import normalize_response as normalize_anthropic_response
@@ -431,7 +434,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
                 stage_index=getattr(args, "stage_index", None),
                 operation_id=getattr(args, "operation_id", None),
-                json=getattr(args, "json", False),
+                json=getattr(args, "json", False), session_id=getattr(args, "session_id", None),
             ),
             provider=provider,
             adapter_type=adapter_type,
@@ -448,7 +451,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
                 stage_index=getattr(args, "stage_index", None), catalog=args.catalog,
                 operation_id=getattr(args, "operation_id", None),
-                json=getattr(args, "json", False),
+                json=getattr(args, "json", False), session_id=getattr(args, "session_id", None),
             ))
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
@@ -456,7 +459,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
             operation_id=getattr(args, "operation_id", None),
-            json=getattr(args, "json", False),
+            json=getattr(args, "json", False), session_id=getattr(args, "session_id", None),
         ))
     if adapter_type == "provider-cli":
         from .cli_chat import run_cli_chat
@@ -473,7 +476,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             operation_id=getattr(args, "operation_id", None),
             writable=False, credential_provider=None, model=None, mcp_server=None, catalog=args.catalog,
             workspace=None, agent=None,
-            json=getattr(args, "json", False),
+            json=getattr(args, "json", False), session_id=getattr(args, "session_id", None),
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")
 
@@ -673,7 +676,7 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
     """Run a journaled local chat session through an OpenAI-compatible adapter."""
     root = args.data_root
     sessions = SessionService(root)
-    session = sessions.create(args.title)
+    session = sessions.open(args.session_id) if getattr(args, "session_id", None) else sessions.create(args.title)
     configuration = AIConfiguration(
         name=f"Local: {args.model}",
         provider_id="local",
@@ -755,7 +758,7 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         raise SystemExit(f"missing CERIT API key; set ${args.api_key_env} without putting it in configuration files")
     root = args.data_root
     sessions = SessionService(root)
-    session = sessions.create(args.title)
+    session = sessions.open(args.session_id) if getattr(args, "session_id", None) else sessions.create(args.title)
     configuration = AIConfiguration(
         name=f"CERIT: {args.model}", provider_id="einfra", access_method_id="openai-compatible",
         model_reference=args.model, location="remote-public", network="public-internet",
@@ -834,7 +837,7 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
         raise SystemExit(f"missing OpenAI API key; set ${args.api_key_env} without putting it in configuration files")
     root = args.data_root
     sessions = SessionService(root)
-    session = sessions.create(args.title)
+    session = sessions.open(args.session_id) if getattr(args, "session_id", None) else sessions.create(args.title)
     configuration = AIConfiguration(
         name=f"OpenAI: {args.model}", provider_id="openai", access_method_id="openai-api",
         model_reference=args.model, location="provider-cloud", network="public-internet",
