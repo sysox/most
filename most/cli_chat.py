@@ -324,17 +324,15 @@ def run_cli_chat(args: Namespace) -> int:
 def _enforce_einfra_model_sensitivity(model: str | None, sensitivity_tier: str, catalog: Path) -> None:
     if sensitivity_tier == "normal":
         return
-    from .model_options import load_model_options, select_model
-
     if not model:
         raise SystemExit("--model is required for sensitive e-INFRA CLI sessions")
     try:
-        select_model(
-            load_model_options(catalog, Path(".most-no-discovery.yaml")),
-            "einfra", model, sensitivity_tier=sensitivity_tier,
-        )
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
+        from .policies import model_policy_reason
+        reason = model_policy_reason("einfra", model, sensitivity_tier, catalog)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"cannot evaluate e-INFRA model policy: {exc}") from exc
+    if reason:
+        raise SystemExit(reason)
 
 
 def _transcript_prompt(messages: list[dict[str, object]]) -> str:

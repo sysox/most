@@ -756,15 +756,13 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
 def _enforce_einfra_model_sensitivity(model: str, sensitivity_tier: str, catalog: Path) -> None:
     if sensitivity_tier == "normal":
         return
-    from .model_options import load_model_options, select_model
-
     try:
-        select_model(
-            load_model_options(catalog, Path(".most-no-discovery.yaml")),
-            "einfra", model, sensitivity_tier=sensitivity_tier,
-        )
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
+        from .policies import model_policy_reason
+        reason = model_policy_reason("einfra", model, sensitivity_tier, catalog)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"cannot evaluate e-INFRA model policy: {exc}") from exc
+    if reason:
+        raise SystemExit(reason)
 
 
 def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:

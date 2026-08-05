@@ -92,7 +92,7 @@ def test_cli_chat_sensitive_einfra_guard_uses_catalog():
     from most.cli_chat import _enforce_einfra_model_sensitivity
 
     _enforce_einfra_model_sensitivity("mini", "sensitive", Path("ai-catalog.yaml"))
-    with pytest.raises(SystemExit, match="model not found in catalog"):
+    with pytest.raises(SystemExit, match="not eligible for sensitive workloads"):
         _enforce_einfra_model_sensitivity("unknown-model", "sensitive", Path("ai-catalog.yaml"))
 
 
