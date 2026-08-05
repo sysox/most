@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -92,9 +93,11 @@ class CLIAdapter:
         if os.name != "nt":
             kwargs["start_new_session"] = True
             kwargs["preexec_fn"] = _set_parent_death_signal
-        process = subprocess.Popen([executable, *arguments], **kwargs)  # type: ignore[arg-type]
+        search_path = environment.get("PATH") if environment else None
+        resolved_executable = shutil.which(executable, path=search_path) or executable
+        process = subprocess.Popen([resolved_executable, *arguments], **kwargs)  # type: ignore[arg-type]
         job_handle = _create_windows_job(process) if os.name == "nt" else None
-        return CLIExecution(process, (executable, *arguments), str(working_directory), job_handle)
+        return CLIExecution(process, (resolved_executable, *arguments), str(working_directory), job_handle)
 
     def cancel(self, execution: CLIExecution, grace_seconds: float = 5.0,
                workspace_scanner: Callable[[], object] | None = None,
