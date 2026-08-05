@@ -10,7 +10,7 @@ from pathlib import Path
 from .adapters import Connectivity, Observability
 from .cli_adapter import CLIAdapter
 from .credentials import resolve_provider_credential
-from .models import AIConfiguration, AIRequest, IntermediateResult
+from .models import AIConfiguration, AIRequest, IntermediateResult, new_id
 from .services import ConfigurationService, ExecutionManager, SessionService
 
 CLI_EXECUTABLES = {
@@ -180,6 +180,17 @@ class ProviderCLIAdapter:
         return {"content": content, "stderr": stderr, "returncode": returncode}
 
 
+def rewind_messages(messages: list[dict[str, str]], turns: int = 1) -> int:
+    """Remove complete user/assistant exchanges from the active context."""
+    if turns < 1:
+        raise ValueError("rewind turns must be a positive integer")
+    exchange_count = len(messages) // 2
+    if turns > exchange_count:
+        raise ValueError(f"cannot rewind {turns} turn(s); only {exchange_count} available")
+    del messages[-(turns * 2):]
+    return turns
+
+
 def run_cli_chat(args: Namespace) -> int:
     writable = bool(getattr(args, "writable", False))
     credential_provider = getattr(args, "credential_provider", None)
@@ -243,7 +254,33 @@ def run_cli_chat(args: Namespace) -> int:
         prompt = prompt.strip()
         if prompt.lower() in {"/exit", "/quit"}:
             break
+        if prompt.lower().startswith("/rewind"):
+            parts = prompt.split()
+            try:
+                turns = int(parts[1]) if len(parts) == 2 else 1
+                removed = rewind_messages(messages, turns)
+            except (ValueError, IndexError) as exc:
+                print(f"rewind> {exc}")
+            else:
+                sessions.journal.record_event(session.id, {
+                    "event_type": "conversation_rewind",
+                    "rewind_id": new_id(),
+                    "removed_turns": removed,
+                    "remaining_messages": len(messages),
+                })
+                print(f"rewind> removed {removed} turn(s); {len(messages)} messages remain in context")
+            if args.prompt is not None:
+                break
+            prompt = None
+            continue
         messages.append({"role": "user", "content": prompt})
+        checkpoint_id = new_id()
+        sessions.journal.record_event(session.id, {
+            "event_type": "conversation_checkpoint",
+            "checkpoint_id": checkpoint_id,
+            "turn_number": (len(messages) + 1) // 2,
+            "message_count": len(messages),
+        })
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
         request = AIRequest(
             session_id=session.id,

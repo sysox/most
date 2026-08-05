@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 from most.cli_adapter import CLIAdapter
-from most.cli_chat import ProviderCLIAdapter
+from most.cli_chat import ProviderCLIAdapter, rewind_messages
 
 
 def test_cli_adapter_cancels_process_group(tmp_path: Path):
@@ -11,6 +11,22 @@ def test_cli_adapter_cancels_process_group(tmp_path: Path):
     report = adapter.cancel(execution, grace_seconds=0.01)
     assert report.requested
     assert execution.process.poll() is not None
+
+
+def test_rewind_messages_removes_complete_exchanges():
+    messages = [
+        {"role": "user", "content": "one"}, {"role": "assistant", "content": "one reply"},
+        {"role": "user", "content": "two"}, {"role": "assistant", "content": "two reply"},
+    ]
+    assert rewind_messages(messages, 1) == 1
+    assert messages == [{"role": "user", "content": "one"}, {"role": "assistant", "content": "one reply"}]
+
+
+def test_rewind_messages_rejects_more_turns_than_available():
+    import pytest
+
+    with pytest.raises(ValueError, match="only 0 available"):
+        rewind_messages([], 1)
 
 
 def test_provider_cli_uses_named_credential_environment(monkeypatch, tmp_path: Path):

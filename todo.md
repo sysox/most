@@ -443,3 +443,6 @@ out of scope unless a concrete use case appears.
 - [x] `inspect-workspace --diff` scope is documented: it reports current
   `HEAD`-relative Git diff, not an invocation snapshot. Tandem must use a
   clean/dedicated workspace or record a baseline commit per stage.
+- [x] MOST-native interactive context rewind is available as `/rewind` or
+  `/rewind N`; it records checkpoint and rewind events without deleting the
+  append-only journal. File rollback remains a separate Git/workspace action.

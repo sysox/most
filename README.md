@@ -47,6 +47,13 @@ against `HEAD`; it is not an invocation-scoped snapshot. For a per-pipeline
 stage diff, use a clean/dedicated workspace or capture the baseline commit
 before invoking the stage and compare against that baseline.
 
+During an interactive `cli-chat` session, use `/rewind` or `/rewind N` to
+remove the last one or N complete user/assistant exchanges from the active
+provider context. MOST keeps the original journal records and writes a
+`conversation_rewind` event; the rewind changes only what is sent on the next
+request. This context rewind does not undo file changes, so use the workspace
+Git baseline for code rollback.
+
 See [ai-map.md](ai-map.md) for the current provider inventory, recommended
 task routing, privacy boundaries, and example commands.
 
