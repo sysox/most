@@ -105,3 +105,20 @@ def test_embedding_adapter_rejects_missing_input_path():
 
     with pytest.raises(ValueError, match="embedding input file is required"):
         MultimodalAdapter().execute({}, configuration)
+
+
+def test_unverified_non_google_binary_operations_are_rejected():
+    configuration = {
+        "model_reference": "image-model",
+        "adapter_options": {
+            "endpoint": "https://llm.ai.e-infra.cz/v1",
+            "provider_id": "einfra",
+            "operation": "image-generation",
+            "prompt": "draw",
+        },
+    }
+
+    import pytest
+
+    with pytest.raises(ValueError, match="currently supported only by the Google Gemini route"):
+        MultimodalAdapter().execute({}, configuration, credential="secret")

@@ -93,9 +93,13 @@ Whisper support is much smaller than previously scoped:
   catalog entry with `capability: transcription`. If the provider
   adapter is truly generic (as `--provider openai` suggests), this may
   be a catalog-only change — verify, don't assume code changes needed.
-- [ ] `ai-embed` / `ai-image` / `ai-image-analyze` / `ai-speech`
-  generalization to einfra remains real work — these have no `--provider`
-  flag shown anywhere in current docs, confirmed Gemini-specific.
+- [x] `ai-embed` and `ai-image-analyze` accept OpenAI-compatible providers
+  (including e-INFRA) through the shared `--provider` route and are covered
+  by adapter tests. `ai-transcribe` already uses the same generic route.
+- [ ] `ai-image` / `ai-speech` generalization to e-INFRA remains deferred:
+  e-INFRA's standalone API contract for image generation and speech synthesis
+  is not verified. MOST rejects these combinations rather than sending a
+  Gemini-shaped request to an incompatible endpoint.
   Lower priority: e-INFRA's own image-generation API availability is
   still unconfirmed (WebUI has an "Image" toggle on chat models, unclear
   if it's a standalone API-callable endpoint) — verify before implementing.

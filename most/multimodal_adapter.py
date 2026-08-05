@@ -28,6 +28,7 @@ class MultimodalResult:
 
 class MultimodalAdapter:
     adapter_type = "multimodal"
+    _GEMINI_ONLY_OPERATIONS = frozenset({"image-generation", "speech-synthesis"})
 
     def validate_configuration(self, configuration: dict[str, Any]) -> list[str]:
         options = configuration.get("adapter_options", {})
@@ -53,6 +54,12 @@ class MultimodalAdapter:
         operation = str(options["operation"])
         input_path = Path(str(options["input_path"])) if options.get("input_path") else None
         prompt = str(options.get("prompt", ""))
+
+        if provider != "google" and operation in self._GEMINI_ONLY_OPERATIONS:
+            raise ValueError(
+                f"{operation} is currently supported only by the Google Gemini route; "
+                f"provider {provider!r} has no verified compatible API"
+            )
 
         if operation == "embedding":
             if input_path is None:

@@ -245,19 +245,23 @@ and an image generator is `text -> image`.
 embedding, image, and speech models cannot be sent accidentally to a text-chat
 route.
 
-Google Gemini capability-specific operations are available through the same
-catalog and keyring:
+Capability-specific operations are available through the same catalog and
+keyring. Embeddings and image analysis also work through OpenAI-compatible
+providers such as e-INFRA:
 
 ```bash
 uv run python -m most ai-embed --model models/gemini-embedding-001 --input document.txt --output document.embedding.json
 uv run python -m most ai-image --model models/gemini-3-pro-image-preview --output picture.bin "Create a mountain illustration"
 uv run python -m most ai-speech --model models/gemini-2.5-pro-preview-tts --output speech.bin "Read this sentence aloud"
 uv run python -m most ai-image-analyze --model gemini-3.5-flash --input picture.png "Describe this image"
+uv run python -m most ai-embed --provider einfra --model qwen3-embedding-4b --input document.txt
+uv run python -m most ai-image-analyze --provider einfra --model kimi --input picture.png "Describe this image"
 ```
 
-These commands currently target the Google Gemini API. The catalog validates
-the required capability before sending a request; generated binary output is
-written exactly as returned by the provider, with its MIME type printed.
+Image generation and speech synthesis currently target the Google Gemini API;
+e-INFRA has no verified standalone API for these operations. The catalog
+validates the required capability before sending a request, and MOST rejects
+unverified provider/operation combinations before network access.
 
 Audio transcription uses an audio-to-text model such as OpenAI Whisper:
 
