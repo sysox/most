@@ -11,6 +11,7 @@ from .adapters import Connectivity, Observability
 from .cli_adapter import CLIAdapter
 from .credentials import resolve_provider_credential
 from .models import AIConfiguration, AIRequest, IntermediateResult, new_id
+from .journal import validate_operation_id
 from .services import ConfigurationService, ExecutionManager, SessionService
 
 CLI_EXECUTABLES = {
@@ -229,6 +230,10 @@ def run_cli_chat(args: Namespace) -> int:
     no_mcp = bool(getattr(args, "no_mcp", False))
     operation_id = getattr(args, "operation_id", None)
     if operation_id:
+        try:
+            operation_id = validate_operation_id(operation_id)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         environment["MOST_TANDEM_OPERATION_ID"] = operation_id
     if no_mcp and mcp_servers:
         raise SystemExit("--no-mcp cannot be combined with --mcp-server")
