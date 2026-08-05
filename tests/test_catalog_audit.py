@@ -104,10 +104,12 @@ providers:
         is_external_passthrough: false
 """, encoding="utf-8")
     monkeypatch.setenv("CERIT_API_KEY", "secret")
-    results, _ = audit_catalog(
-        catalog_path,
-        fetch=lambda url, headers: (200, {"data": [{"id": "mini"}]}),
-    )
+    def fetch(url, headers):
+        assert headers["x-litellm-api-key"] == "Bearer secret"
+        assert "authorization" not in headers
+        return 200, {"data": [{"id": "mini"}]}
+
+    results, _ = audit_catalog(catalog_path, fetch=fetch)
     mini = next(result for result in results if result.model_id == "mini")
     assert "on-premise" in mini.reason
 

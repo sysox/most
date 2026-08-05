@@ -136,6 +136,11 @@ def _audit_api(
             headers.update({"x-api-key": credential, "anthropic-version": "2023-06-01"})
         elif provider_id == "google":
             headers["x-goog-api-key"] = credential
+        elif provider_id == "einfra":
+            # e-INFRA's /v1/model/info route is served by LiteLLM and its
+            # documented discovery credential header is distinct from the
+            # Authorization header used by the OpenAI-compatible API routes.
+            headers["x-litellm-api-key"] = f"Bearer {credential}"
         else:
             headers["authorization"] = f"Bearer {credential}"
     status_code, body = fetch(str(discovery["endpoint"]), headers)
