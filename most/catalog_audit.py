@@ -177,6 +177,14 @@ def _audit_api(
             else:
                 model_status = "unavailable"
                 reason = "model not returned by provider"
+            if provider_id == "einfra":
+                passthrough = model.get("is_external_passthrough")
+                if passthrough is False:
+                    reason += "; catalog marks model as on-premise"
+                elif passthrough is True:
+                    reason += "; catalog marks external passthrough"
+                else:
+                    reason += "; external passthrough status unconfirmed"
             results.append(AuditResult(provider_id, route, model_id, model_status, reason))
     return results
 

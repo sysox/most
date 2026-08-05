@@ -87,6 +87,31 @@ providers:
     assert "not found" in results[0].reason
 
 
+def test_einfra_audit_reports_passthrough_status(tmp_path: Path, monkeypatch):
+    catalog_path = tmp_path / "catalog.yaml"
+    catalog_path.write_text("""
+providers:
+  - id: einfra
+    access_methods:
+      - id: openai-compatible
+        model_discovery:
+          method: GET
+          endpoint: https://llm.ai.e-infra.cz/v1/models
+    models:
+      - id: mini
+        status: available
+        capabilities: [chat]
+        is_external_passthrough: false
+""", encoding="utf-8")
+    monkeypatch.setenv("CERIT_API_KEY", "secret")
+    results, _ = audit_catalog(
+        catalog_path,
+        fetch=lambda url, headers: (200, {"data": [{"id": "mini"}]}),
+    )
+    mini = next(result for result in results if result.model_id == "mini")
+    assert "on-premise" in mini.reason
+
+
 def test_audit_allows_unauthenticated_local_api_endpoint(tmp_path: Path):
     catalog_path = tmp_path / "catalog.yaml"
     catalog_path.write_text("""

@@ -301,7 +301,7 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   only, storage/logging outside most's control — so the sensitive-tier
   block must be a rule on the `browser-chat` route itself, not a
   per-provider special case for `cerit`.
-- [ ] **Non-goal, write explicitly to prevent accidental scope creep:**
+- [x] **Non-goal, write explicitly to prevent accidental scope creep:**
   voice/real-time-audio capture from a provider's web UI (e.g. ChatGPT
   Advanced Voice, Gemini Live) is NOT part of `browser-chat` and should
   not be implemented as a "small extension" of it. `browser-chat` is a
@@ -316,7 +316,7 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   `false` (i.e. verified on-prem) before a model is eligible for
   `sensitive`-tier task profiles. Until verified, treat unknown e-INFRA
   models as ineligible for sensitive tier.
-- [ ] `catalog-audit` for the einfra provider should record whatever
+- [x] `catalog-audit` for the einfra provider should record whatever
   signal is available (e.g. cross-check against the documented "internal
   models" list) to help set this field, but manual confirmation is
   acceptable for now — don't over-engineer detection.
