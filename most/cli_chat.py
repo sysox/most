@@ -33,6 +33,15 @@ MCP_SERVERS = {
 }
 
 
+def validate_cli_workspace_path(workspace: Path, data_root: Path) -> Path:
+    """Reject workspaces that could expose MOST's own data directory."""
+    candidate = workspace.resolve()
+    forbidden = data_root.resolve()
+    if candidate == forbidden or candidate in forbidden.parents or forbidden in candidate.parents:
+        raise ValueError("workspace overlaps MOST data-root")
+    return candidate
+
+
 def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[str, ...]:
     if provider == "codex":
         if writable:
@@ -216,7 +225,10 @@ def run_cli_chat(args: Namespace) -> int:
         raise SystemExit("--mcp-server requires --credential-provider einfra")
     selected_workspace = getattr(args, "workspace", None)
     if selected_workspace is not None:
-        sandbox = Path(selected_workspace).resolve()
+        try:
+            sandbox = validate_cli_workspace_path(Path(selected_workspace), args.data_root)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         if not sandbox.is_dir():
             raise SystemExit(f"workspace directory not found: {sandbox}")
         if not writable:

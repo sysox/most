@@ -111,6 +111,22 @@ def test_unified_chat_model_selection_errors_are_clean(monkeypatch, tmp_path: Pa
         cli._run_unified_chat(args)
 
 
+def test_cli_workspace_cannot_overlap_data_root(tmp_path: Path):
+    from most.cli_chat import validate_cli_workspace_path
+
+    data_root = tmp_path / "most-data"
+    workspace = tmp_path / "workspace"
+    data_root.mkdir()
+    workspace.mkdir()
+    assert validate_cli_workspace_path(workspace, data_root) == workspace.resolve()
+    with pytest.raises(ValueError, match="overlaps MOST data-root"):
+        validate_cli_workspace_path(data_root, data_root)
+    with pytest.raises(ValueError, match="overlaps MOST data-root"):
+        validate_cli_workspace_path(data_root / "workspace", data_root)
+    with pytest.raises(ValueError, match="overlaps MOST data-root"):
+        validate_cli_workspace_path(tmp_path, data_root)
+
+
 def test_cerit_chat_sensitive_guard_accepts_legacy_namespace_without_catalog():
     from most.cli import _enforce_einfra_model_sensitivity
 
