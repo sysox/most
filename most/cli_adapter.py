@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +91,7 @@ class CLIAdapter:
         }
         if os.name != "nt":
             kwargs["start_new_session"] = True
+            kwargs["preexec_fn"] = _set_parent_death_signal
         process = subprocess.Popen([executable, *arguments], **kwargs)  # type: ignore[arg-type]
         job_handle = _create_windows_job(process) if os.name == "nt" else None
         return CLIExecution(process, (executable, *arguments), str(working_directory), job_handle)
@@ -184,6 +186,16 @@ def _close_windows_job(handle) -> None:
     if os.name == "nt" and handle is not None:
         import ctypes
         ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(handle)
+
+
+def _set_parent_death_signal() -> None:
+    """Make a provider CLI die if the MOST process that launched it dies."""
+    if not sys.platform.startswith("linux"):
+        return
+    import ctypes
+    libc = ctypes.CDLL(None, use_errno=True)
+    # Linux PR_SET_PDEATHSIG = 1.
+    libc.prctl(1, signal.SIGKILL)
 
 
 def redact_command(command: tuple[str, ...], sensitive_flags: frozenset[str] = frozenset({"--api-key", "--token", "--password", "--secret"})) -> tuple[str, ...]:
