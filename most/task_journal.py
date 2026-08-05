@@ -11,7 +11,8 @@ from .services import ConfigurationService, SessionService
 
 def record_task(root: Path, *, provider: str, model: str, operation: str, input_summary: str,
                 output_summary: str, metadata: dict[str, Any] | None = None,
-                pricing: dict[str, Any] | None = None) -> str:
+                pricing: dict[str, Any] | None = None, profile: str | None = None,
+                pipeline_id: str | None = None, stage_index: int | None = None) -> str:
     task_metadata = dict(metadata or {})
     cost = estimate_cost(task_metadata.get("usage"), pricing)
     if cost is not None:
@@ -28,14 +29,19 @@ def record_task(root: Path, *, provider: str, model: str, operation: str, input_
         session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
         messages=[{"role": "user", "content": input_summary}],
         execution_options={"operation": operation},
+        profile=profile, pipeline_id=pipeline_id, stage_index=stage_index,
     )
     sessions.journal.record_request(session.id, request)
     result = IntermediateResult(
         session_id=session.id, interaction_id=interaction.id, execution_id=None,
         sequence_number=1, result_type=operation, metadata=task_metadata,
+        profile=profile, pipeline_id=pipeline_id, stage_index=stage_index,
     )
     sessions.add_result(result, output_summary)
-    sessions.journal.record_response(session.id, new_id(), {"operation": operation, **task_metadata})
+    sessions.journal.record_response(
+        session.id, new_id(), {"operation": operation, **task_metadata},
+        journal_context={"profile": profile, "pipeline_id": pipeline_id, "stage_index": stage_index},
+    )
     return session.id
 
 

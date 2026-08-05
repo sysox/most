@@ -137,6 +137,9 @@ class AIResponse:
     usage: dict[str, Any] = field(default_factory=dict)
     cost: dict[str, Any] | None = None
     provider_metadata: dict[str, Any] = field(default_factory=dict)
+    profile: str | None = None
+    pipeline_id: str | None = None
+    stage_index: int | None = None
     raw_response_reference: str | None = None
     created_at: str = field(default_factory=utc_now)
 
@@ -246,6 +249,9 @@ class IntermediateResult:
     structured_reference: str | None = None
     parent_result_id: str | None = None
     selected_as_final: bool = False
+    profile: str | None = None
+    pipeline_id: str | None = None
+    stage_index: int | None = None
     created_at: str = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -260,6 +266,9 @@ class AIRequest:
     attachments: list[str] = field(default_factory=list)
     generation_options: dict[str, Any] = field(default_factory=dict)
     execution_options: dict[str, Any] = field(default_factory=dict)
+    profile: str | None = None
+    pipeline_id: str | None = None
+    stage_index: int | None = None
     created_at: str = field(default_factory=utc_now)
 
 

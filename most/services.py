@@ -373,6 +373,7 @@ class ExecutionManager:
                 new_id(),
                 _response_payload(response),
                 secrets=(credential,) if credential else (),
+                journal_context={"profile": request.profile, "pipeline_id": request.pipeline_id, "stage_index": request.stage_index},
             )
             execution, event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, event)
@@ -383,6 +384,7 @@ class ExecutionManager:
                 new_id(),
                 {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
                 secrets=(credential,) if credential else (),
+                journal_context={"profile": request.profile, "pipeline_id": request.pipeline_id, "stage_index": request.stage_index},
             )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, event = transition(failed, ExecutionState.FAILED)
@@ -440,6 +442,7 @@ class ExecutionManager:
                 new_id(),
                 {"execution_id": execution.id, "stream_events": [event.payload for event in observed]},
                 secrets=(credential,) if credential else (),
+                journal_context={"profile": request.profile, "pipeline_id": request.pipeline_id, "stage_index": request.stage_index},
             )
             execution, status_event = transition(execution, ExecutionState.COMPLETED)
             self._event(execution, status_event)
@@ -450,6 +453,7 @@ class ExecutionManager:
                 new_id(),
                 {"execution_id": execution.id, "type": type(exc).__name__, "message": str(exc)},
                 secrets=(credential,) if credential else (),
+                journal_context={"profile": request.profile, "pipeline_id": request.pipeline_id, "stage_index": request.stage_index},
             )
             failed = replace(execution, error={"type": type(exc).__name__, "message": str(exc)})
             failed, status_event = transition(failed, ExecutionState.FAILED)

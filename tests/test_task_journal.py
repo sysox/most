@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from most.task_journal import estimate_cost, record_task
@@ -14,10 +15,17 @@ def test_one_shot_task_is_journaled(tmp_path: Path):
     session_id = record_task(
         tmp_path, provider="google", model="embedding-model", operation="embedding",
         input_summary="text file: sample.txt", output_summary="embedding with 3 dimensions",
-        metadata={"dimensions": 3},
+        metadata={"dimensions": 3}, profile="research", pipeline_id="pipe-1", stage_index=2,
     )
     session_root = tmp_path / "sessions" / session_id
     assert (session_root / "session.yaml").exists()
     assert list((session_root / "structured").glob("request-*.json"))
     assert list((session_root / "results").glob("*.md"))
     assert list((session_root / "structured").glob("response-*.json"))
+    request = json.loads(next((session_root / "structured").glob("request-*.json")).read_text(encoding="utf-8"))
+    result = json.loads(next((session_root / "structured").glob("result-*.json")).read_text(encoding="utf-8"))
+    response = json.loads(next((session_root / "structured").glob("response-*.json")).read_text(encoding="utf-8"))
+    for record in (request, result, response):
+        assert record["profile"] == "research"
+        assert record["pipeline_id"] == "pipe-1"
+        assert record["stage_index"] == 2
