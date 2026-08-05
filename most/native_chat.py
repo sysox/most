@@ -45,7 +45,11 @@ def run_native_chat(args: Namespace, *, provider: str, adapter_type: str, base_u
             break
         messages.append({"role": "user", "content": prompt})
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
-        request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
+        request = AIRequest(
+            session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
+            messages=list(messages), profile=getattr(args, "profile", None),
+            pipeline_id=getattr(args, "pipeline_id", None), stage_index=getattr(args, "stage_index", None),
+        )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize(response)

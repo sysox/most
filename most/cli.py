@@ -376,6 +376,8 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
         return run_gpt_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
             api_key_env=option["credential_env"] or "OPENAI_API_KEY", base_url="https://api.openai.com/v1", title=args.title,
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
         ))
     if adapter_type in {"anthropic-api", "gemini-api"}:
         from .anthropic_api import normalize_response as normalize_anthropic_response
@@ -386,6 +388,8 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             argparse.Namespace(
                 data_root=args.data_root, prompt=args.prompt, model=args.model,
                 api_key_env=option["credential_env"], title=args.title,
+                profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+                stage_index=getattr(args, "stage_index", None),
             ),
             provider=provider,
             adapter_type=adapter_type,
@@ -405,6 +409,8 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
             base_url=option["endpoint"], title=args.title,
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
         ))
     if adapter_type == "provider-cli":
         from .cli_chat import run_cli_chat
@@ -416,6 +422,10 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
         return run_cli_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, provider=executable,
             title=args.title, allow_unknown_connectivity=True,
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None), sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
+            writable=False, credential_provider=None, model=None, mcp_server=None, catalog=args.catalog,
+            workspace=None, agent=None,
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")
 
@@ -649,6 +659,8 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
             interaction_id=interaction.id,
             configuration_id=configuration.id,
             messages=list(messages),
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter)
@@ -789,7 +801,11 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
             break
         messages.append({"role": "user", "content": prompt})
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
-        request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
+        request = AIRequest(
+            session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
+            messages=list(messages), profile=getattr(args, "profile", None),
+            pipeline_id=getattr(args, "pipeline_id", None), stage_index=getattr(args, "stage_index", None),
+        )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize_openai_response(response)
