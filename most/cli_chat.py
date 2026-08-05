@@ -241,6 +241,9 @@ def run_cli_chat(args: Namespace) -> int:
             configuration_id=configuration.id,
             messages=list(messages),
             execution_options={"sensitivity_tier": getattr(args, "sensitivity_tier", "normal")},
+            profile=getattr(args, "profile", None),
+            pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(

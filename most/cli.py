@@ -51,6 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     cerit_chat.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
                             help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
     cerit_chat.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    cerit_chat.add_argument("--profile")
+    cerit_chat.add_argument("--pipeline-id")
+    cerit_chat.add_argument("--stage-index", type=int)
     cerit_chat.add_argument("--title", default="CERIT AI chat")
     gpt_chat = subparsers.add_parser("gpt-chat", help="communicate with OpenAI through the official Responses API")
     gpt_chat.add_argument("prompt", nargs="?")
@@ -94,6 +97,9 @@ def build_parser() -> argparse.ArgumentParser:
                          help="disable model reasoning when supported")
     unified.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
                          help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
+    unified.add_argument("--profile")
+    unified.add_argument("--pipeline-id")
+    unified.add_argument("--stage-index", type=int)
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
     _add_capability_task_args(embed, "embedding", output_modality="embedding")
     embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
@@ -165,6 +171,9 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
                           help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
     cli_chat.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    cli_chat.add_argument("--profile")
+    cli_chat.add_argument("--pipeline-id")
+    cli_chat.add_argument("--stage-index", type=int)
     cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
                           help="attach an e-INFRA MCP server to Claude (repeatable)")
     return parser
@@ -378,6 +387,8 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 api_key_env=option["credential_env"] or "CERIT_API_KEY", base_url="https://llm.ai.e-infra.cz/v1",
                 title=args.title, thinking=getattr(args, "thinking", None),
                 sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
+                profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+                stage_index=getattr(args, "stage_index", None), catalog=args.catalog,
             ))
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
@@ -696,6 +707,8 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
             session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
             messages=list(messages), generation_options=generation_options,
             execution_options={"sensitivity_tier": getattr(args, "sensitivity_tier", "normal")},
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)

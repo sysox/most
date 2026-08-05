@@ -72,6 +72,19 @@ def test_policy_check_is_standalone_and_structured(capsys):
     assert output["reason"] == "browser-chat is not allowed for sensitive workloads"
 
 
+def test_tandem_journal_context_flags_are_available_on_cli_commands():
+    for command, extra in (
+        ("cli-chat", ["codex"]),
+        ("ai-chat", []),
+        ("cerit-chat", []),
+    ):
+        arguments = [command, *extra, "--profile", "coding", "--pipeline-id", "pipe-1", "--stage-index", "1"]
+        if command in {"ai-chat"}:
+            arguments += ["--model", "mini"]
+        args = build_parser().parse_args(arguments)
+        assert (args.profile, args.pipeline_id, args.stage_index) == ("coding", "pipe-1", 1)
+
+
 def test_direct_cerit_chat_sensitive_guard_uses_catalog():
     from pathlib import Path
 
