@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ prices:
       checked_at: 2026-08-04
 """, encoding="utf-8")
     apply_pricing_updates(catalog, updates, update=True)
-    assert "pricing_last_updated: '2026-08-04'" in catalog.read_text(encoding="utf-8")
+    assert f"pricing_last_updated: '{datetime.now(UTC).date().isoformat()}'" in catalog.read_text(encoding="utf-8")
 
 
 def test_pricing_update_rejects_http_sources(tmp_path: Path):
