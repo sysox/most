@@ -32,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     workspace = subparsers.add_parser("inspect-workspace")
     workspace.add_argument("repository", type=Path)
     workspace.add_argument("--diff", action="store_true")
+    workspace.add_argument("--diff-against", metavar="REF",
+                           help="compare against a Git ref; without it, use git diff's index-relative default")
     workspace.add_argument("--compatibility", action="store_true")
     workspace.add_argument("--history", action="store_true")
     chat = subparsers.add_parser("chat", help="communicate with a local OpenAI-compatible runtime")
@@ -222,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
         service = WorkspaceService(args.data_root, args.repository)
         result = service.compatibility_report() if args.compatibility else service.inspect()
         if args.diff and result["is_repository"]:
-            result["diff"] = service.git.diff()
+            result["diff"] = service.git.diff(args.diff_against)
         if args.history:
             result["history"] = service.history()
         print(json.dumps(result, indent=2, default=str))

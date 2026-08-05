@@ -28,6 +28,7 @@ uv run python -m most --data-root ./application-data list-sessions
 uv run python -m most --data-root ./application-data list-configurations
 uv run python -m most --data-root ./application-data inspect-execution <execution-id>
 uv run python -m most --data-root ./application-data inspect-workspace <repository> --diff
+uv run python -m most --data-root ./application-data inspect-workspace <repository> --diff --diff-against HEAD
 uv run python -m most --data-root ./application-data inspect-workspace <repository> --compatibility
 uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 ```
@@ -42,10 +43,12 @@ uv run python -m most cli-chat --agent claude --writable \
 ```
 
 Without `--workspace`, CLI sessions use a MOST-managed sandbox. The
-`inspect-workspace --diff` command reports the repository's current Git diff
-against `HEAD`; it is not an invocation-scoped snapshot. For a per-pipeline
-stage diff, use a clean/dedicated workspace or capture the baseline commit
-before invoking the stage and compare against that baseline.
+`inspect-workspace --diff` uses Git's default index-relative diff: unstaged
+working-tree changes are reported, while staged changes are not. Pass
+`--diff-against HEAD` (or another commit/ref) for a ref-relative diff. The
+result is not an invocation-scoped snapshot. For a per-pipeline stage diff,
+use a clean/dedicated workspace or capture the baseline commit before invoking
+the stage and pass that baseline with `--diff-against`.
 
 During an interactive `cli-chat` session, use `/rewind` or `/rewind N` to
 remove the last one or N complete user/assistant exchanges from the active

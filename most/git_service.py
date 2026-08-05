@@ -67,8 +67,11 @@ class GitService:
                 paths.append(path)
         return paths
 
-    def diff(self) -> str:
-        return self.run("diff", "--no-ext-diff", "--binary").stdout
+    def diff(self, against: str | None = None) -> str:
+        arguments = ["diff", "--no-ext-diff", "--binary"]
+        if against:
+            arguments.append(against)
+        return self.run(*arguments).stdout
 
     def current_commit(self) -> str:
         return self.run("rev-parse", "HEAD").stdout.strip()

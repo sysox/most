@@ -35,3 +35,22 @@ def test_git_checkpoint_and_isolated_worktree(tmp_path: Path):
     (worktree / "change.txt").write_text("change\n", encoding="utf-8")
     commit = GitService(worktree).checkpoint(["change.txt"], message="AI iteration", trailers={"Session": "s1", "Iteration": "1"})
     assert len(commit) == 40
+
+
+def test_git_diff_defaults_to_index_and_accepts_ref(tmp_path: Path):
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(["git", "init", "-q", str(repository)], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.name", "test"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "config", "user.email", "test@example.invalid"], check=True, stdin=subprocess.DEVNULL)
+    tracked = repository / "README.md"
+    tracked.write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "README.md"], check=True, stdin=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", str(repository), "-c", "commit.gpgSign=false", "commit", "-qm", "initial"], check=True, stdin=subprocess.DEVNULL)
+    tracked.write_text("unstaged\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "README.md"], check=True, stdin=subprocess.DEVNULL)
+    tracked.write_text("worktree\n", encoding="utf-8")
+
+    service = GitService(repository)
+    assert "base" not in service.diff()
+    assert "base" in service.diff("HEAD")
