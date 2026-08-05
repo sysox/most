@@ -66,6 +66,9 @@ def credential_environment(cli: str, provider: str, model: str | None) -> tuple[
     if cli == "codex":
         environment = {"OPENAI_BASE_URL": "https://llm.ai.e-infra.cz"}
         return environment, "OPENAI_API_KEY"
+    if cli == "opencode":
+        environment = {"OPENAI_BASE_URL": "https://llm.ai.e-infra.cz/v1"}
+        return environment, "OPENAI_API_KEY"
     raise ValueError(f"e-INFRA credentials are not implemented for {cli}")
 
 
@@ -83,6 +86,37 @@ def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
             for name in dict.fromkeys(server_names)
         }
     }
+
+
+def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {
+            "einfra": {
+                "npm": "@ai-sdk/openai-compatible",
+                "name": "e-INFRA",
+                "options": {
+                    "baseURL": "https://llm.ai.e-infra.cz/v1",
+                    "apiKey": "{env:OPENAI_API_KEY}",
+                },
+                "models": {model: {"name": model}} if model else {},
+            }
+        },
+    }
+    if model:
+        payload["model"] = f"einfra/{model}"
+    if server_names:
+        payload["mcp"] = {
+            name: {
+                "type": "remote",
+                "url": MCP_SERVERS[name],
+                "enabled": True,
+                "oauth": False,
+                "headers": {"Authorization": "Bearer {env:MOST_MCP_AUTH}"},
+            }
+            for name in dict.fromkeys(server_names)
+        }
+    return payload
 
 
 class ProviderCLIAdapter:
@@ -113,16 +147,22 @@ class ProviderCLIAdapter:
         }
         mcp_path = None
         mcp_servers = configuration.get("adapter_options", {}).get("mcp_servers", [])
+        opencode_model = configuration.get("adapter_options", {}).get("opencode_model")
+        if self.provider == "opencode" and opencode_model:
+            environment = dict(runtime_configuration["adapter_options"].get("environment", {}))
+            environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config_payload(str(opencode_model), list(mcp_servers)))
+            runtime_configuration["adapter_options"]["environment"] = environment
         if mcp_servers:
-            if self.provider != "claude":
-                raise ValueError("MCP is currently supported only for Claude CLI")
-            with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", suffix=".json", prefix=".most-mcp-",
-                dir=self.working_directory, delete=False,
-            ) as handle:
-                mcp_path = Path(handle.name)
-                json.dump(mcp_config_payload(list(mcp_servers)), handle)
-            runtime_configuration["adapter_options"]["arguments"] = [*arguments, "--mcp-config", str(mcp_path)]
+            if self.provider == "claude":
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", suffix=".json", prefix=".most-mcp-",
+                    dir=self.working_directory, delete=False,
+                ) as handle:
+                    mcp_path = Path(handle.name)
+                    json.dump(mcp_config_payload(list(mcp_servers)), handle)
+                runtime_configuration["adapter_options"]["arguments"] = [*arguments, "--mcp-config", str(mcp_path)]
+            elif self.provider != "opencode":
+                raise ValueError("MCP is currently supported only for Claude and OpenCode CLI")
         try:
             result = self.cli.execute(request, runtime_configuration, credential)
         finally:
@@ -147,7 +187,7 @@ def run_cli_chat(args: Namespace) -> int:
     credential_env_var = None
     mcp_servers = list(getattr(args, "mcp_server", []) or [])
     if credential_provider:
-        if args.provider not in {"codex", "claude"}:
+        if args.provider not in {"codex", "claude", "opencode"}:
             raise SystemExit("--credential-provider einfra currently supports only codex and claude")
         environment, credential_env_var = credential_environment(args.provider, credential_provider, model)
         credential = resolve_provider_credential(credential_provider)
@@ -175,6 +215,7 @@ def run_cli_chat(args: Namespace) -> int:
             "credential_env_var": credential_env_var,
             "credential_env_vars": [value for value in (credential_env_var, "MOST_MCP_AUTH") if value],
             "mcp_servers": mcp_servers,
+            "opencode_model": model,
         },
     )
     ConfigurationService(args.data_root).save(configuration)

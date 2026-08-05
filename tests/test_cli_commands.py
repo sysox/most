@@ -55,7 +55,12 @@ def test_cli_chat_persists_local_session_and_result(tmp_path: Path, capsys):
 
 
 def test_provider_cli_command_mapping():
-    from most.cli_chat import command_for, credential_environment, mcp_config_payload
+    from most.cli_chat import (
+        command_for,
+        credential_environment,
+        mcp_config_payload,
+        opencode_config_payload,
+    )
 
     assert command_for("codex", "hello")[:5] == ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check")
     assert command_for("claude", "hello") == ("-p", "hello")
@@ -69,11 +74,17 @@ def test_provider_cli_command_mapping():
     assert environment["ANTHROPIC_BASE_URL"] == "https://llm.ai.e-infra.cz/"
     assert environment["ANTHROPIC_MODEL"] == "agentic"
     assert variable == "ANTHROPIC_AUTH_TOKEN"
+    environment, variable = credential_environment("opencode", "einfra", "mini")
+    assert environment["OPENAI_BASE_URL"].endswith("/v1")
+    assert variable == "OPENAI_API_KEY"
     payload = mcp_config_payload(["ddg_search"])
     assert payload["mcpServers"]["ddg_search"]["url"].endswith("/ddg_search/mcp")
     assert "${MOST_MCP_AUTH}" in str(payload)
     with pytest.raises(ValueError, match="unknown e-INFRA MCP"):
         mcp_config_payload(["missing"])
+    config = opencode_config_payload("mini", ["ddg_search"])
+    assert config["model"] == "einfra/mini"
+    assert config["mcp"]["ddg_search"]["headers"]["Authorization"] == "Bearer {env:MOST_MCP_AUTH}"
 
 
 def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):
