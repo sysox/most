@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from .catalog_schema import validate_catalog
 from .modalities import model_modalities
 
 ENVIRONMENT_KEYS = {
@@ -23,7 +24,7 @@ CLI_EXECUTABLES = {"openai": "codex", "anthropic": "claude", "google": "agy"}
 
 
 def load_model_options(catalog_path: Path = Path("ai-catalog.yaml"), discovered_path: Path = Path("ai-discovered.yaml")) -> list[dict[str, Any]]:
-    catalog = _load(catalog_path)
+    catalog = validate_catalog(_load(catalog_path))
     discovered = _load(discovered_path) if discovered_path.exists() else {}
     discovered_by_provider = {
         str(provider.get("id")): provider

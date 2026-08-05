@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from .catalog_schema import validate_catalog
 from .modalities import infer_modalities, model_modalities
 
 
@@ -55,9 +56,7 @@ def audit_catalog(
     A missing credential or executable is reported as ``unknown`` because it
     does not prove that the provider is unavailable for the user.
     """
-    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
-    if not isinstance(catalog, dict) or not isinstance(catalog.get("providers"), list):
-        raise TypeError("catalog must contain a providers list")
+    catalog = validate_catalog(yaml.safe_load(catalog_path.read_text(encoding="utf-8")))
     fetch = fetch or fetch_json
     results: list[AuditResult] = []
 

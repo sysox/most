@@ -12,9 +12,13 @@ def test_pricing_update_requires_source_and_updates_model(tmp_path: Path):
     catalog.write_text("""
 providers:
   - id: openai
+    access_methods:
+      - id: api
+        endpoint: https://api.openai.com/v1
     models:
       - id: gpt-test
         status: available
+        capabilities: [chat]
 """, encoding="utf-8")
     updates.write_text("""
 prices:

@@ -1,17 +1,25 @@
 from pathlib import Path
 
+import pytest
+
 from most.catalog_audit import (
     _model_ids,
     _model_type,
     _sync_discovered_models,
     audit_catalog,
 )
+from most.catalog_schema import validate_catalog
 
 
 def test_model_ids_support_nested_discovery_responses():
     assert _model_ids({"data": {"models": [{"name": "mini"}, {"id": "coder"}]}}) == {"mini", "coder"}
     assert _model_ids({"data": [{"id": "uuid", "name": "kimi-k2"}]}) == {"kimi-k2"}
     assert _model_ids({"data": [{"id": "6ff8b176-d74b-46e6-9d2a-f9185414d721"}]}) == set()
+
+
+def test_catalog_schema_rejects_models_without_capabilities():
+    with pytest.raises(ValueError, match="capabilities"):
+        validate_catalog({"providers": [{"id": "p", "access_methods": [], "models": [{"id": "m", "status": "available"}]}]})
 
 
 def test_model_types_group_specialized_models():

@@ -8,9 +8,11 @@ from typing import Any
 
 import yaml
 
+from .catalog_schema import validate_catalog
+
 
 def apply_pricing_updates(catalog_path: Path, updates_path: Path, *, update: bool = False) -> dict[str, Any]:
-    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog = validate_catalog(yaml.safe_load(catalog_path.read_text(encoding="utf-8")))
     updates = yaml.safe_load(updates_path.read_text(encoding="utf-8"))
     if not isinstance(catalog, dict) or not isinstance(updates, dict):
         raise TypeError("catalog and pricing updates must be YAML mappings")
