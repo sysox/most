@@ -57,6 +57,11 @@ provider context. MOST keeps the original journal records and writes a
 request. This context rewind does not undo file changes, so use the workspace
 Git baseline for code rollback.
 
+For machine-driven stages, `cli-chat`, `ai-chat`, and `cerit-chat` accept
+`--json` and emit one JSON object containing `content`, `session_id`,
+`profile`, `pipeline_id`, `stage_index`, and `operation_id`. Human-readable
+framing is disabled in this mode so integrations do not need to scrape stdout.
+
 See [ai-map.md](ai-map.md) for the current provider inventory, recommended
 task routing, privacy boundaries, and example commands.
 

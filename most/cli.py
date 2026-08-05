@@ -57,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     cerit_chat.add_argument("--pipeline-id")
     cerit_chat.add_argument("--stage-index", type=int)
     cerit_chat.add_argument("--operation-id")
+    cerit_chat.add_argument("--json", action="store_true", help="print one structured stage result")
     cerit_chat.add_argument("--title", default="CERIT AI chat")
     gpt_chat = subparsers.add_parser("gpt-chat", help="communicate with OpenAI through the official Responses API")
     gpt_chat.add_argument("prompt", nargs="?")
@@ -104,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--pipeline-id")
     unified.add_argument("--stage-index", type=int)
     unified.add_argument("--operation-id")
+    unified.add_argument("--json", action="store_true", help="print one structured stage result")
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
     _add_capability_task_args(embed, "embedding", output_modality="embedding")
     embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
@@ -188,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--pipeline-id")
     cli_chat.add_argument("--stage-index", type=int)
     cli_chat.add_argument("--operation-id")
+    cli_chat.add_argument("--json", action="store_true", help="print one structured stage result")
     cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
                           help="attach an e-INFRA MCP server to Claude (repeatable)")
     cli_chat.add_argument("--no-mcp", action="store_true",
@@ -403,6 +406,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
             operation_id=getattr(args, "operation_id", None),
+            json=getattr(args, "json", False),
         ))
     if adapter_type in {"anthropic-api", "gemini-api"}:
         from .anthropic_api import normalize_response as normalize_anthropic_response
@@ -416,6 +420,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
                 stage_index=getattr(args, "stage_index", None),
                 operation_id=getattr(args, "operation_id", None),
+                json=getattr(args, "json", False),
             ),
             provider=provider,
             adapter_type=adapter_type,
@@ -432,6 +437,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
                 stage_index=getattr(args, "stage_index", None), catalog=args.catalog,
                 operation_id=getattr(args, "operation_id", None),
+                json=getattr(args, "json", False),
             ))
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
@@ -439,6 +445,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
             operation_id=getattr(args, "operation_id", None),
+            json=getattr(args, "json", False),
         ))
     if adapter_type == "provider-cli":
         from .cli_chat import run_cli_chat
@@ -455,6 +462,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
             operation_id=getattr(args, "operation_id", None),
             writable=False, credential_provider=None, model=None, mcp_server=None, catalog=args.catalog,
             workspace=None, agent=None,
+            json=getattr(args, "json", False),
         ))
     raise SystemExit(f"unsupported unified route: {adapter_type}")
 
@@ -715,11 +723,13 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
         sessions.add_result(result, content)
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
-        print(f"assistant> {content}")
+        from .chat_output import print_chat_result
+        print_chat_result(args, content, session.id)
         if args.prompt is not None:
             break
         prompt = None
-    print(f"session: {session.id}")
+    from .chat_output import print_chat_session
+    print_chat_session(args, session.id)
     return 0
 
 
@@ -782,11 +792,13 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         sessions.add_result(result, content)
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
-        print(f"assistant> {content}")
+        from .chat_output import print_chat_result
+        print_chat_result(args, content, session.id)
         if args.prompt is not None:
             break
         prompt = None
-    print(f"session: {session.id}")
+    from .chat_output import print_chat_session
+    print_chat_session(args, session.id)
     return 0
 
 
@@ -850,9 +862,11 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
         sessions.add_result(result, content)
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
-        print(f"assistant> {content}")
+        from .chat_output import print_chat_result
+        print_chat_result(args, content, session.id)
         if args.prompt is not None:
             break
         prompt = None
-    print(f"session: {session.id}")
+    from .chat_output import print_chat_session
+    print_chat_session(args, session.id)
     return 0

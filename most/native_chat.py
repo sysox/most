@@ -61,9 +61,11 @@ def run_native_chat(args: Namespace, *, provider: str, adapter_type: str, base_u
         sessions.add_result(result, content)
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
-        print(f"assistant> {content}")
+        from .chat_output import print_chat_result
+        print_chat_result(args, content, session.id)
         if args.prompt is not None:
             break
         prompt = None
-    print(f"session: {session.id}")
+    from .chat_output import print_chat_session
+    print_chat_session(args, session.id)
     return 0

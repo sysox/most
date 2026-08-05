@@ -54,6 +54,33 @@ def test_cli_chat_persists_local_session_and_result(tmp_path: Path, capsys):
     assert list((tmp_path / "executions").glob("*/metadata.yaml"))
 
 
+def test_local_chat_json_output_is_machine_readable(tmp_path: Path, capsys):
+    from most.cli import run_chat
+
+    args = Namespace(
+        data_root=tmp_path,
+        prompt="hello",
+        model="granite4.1:3b",
+        base_url="http://127.0.0.1:11434/v1",
+        title="local",
+        json=True,
+        profile="review",
+        pipeline_id="pipe-1",
+        stage_index=2,
+        operation_id="pipe-1:stage-2",
+    )
+    assert run_chat(args, registry=FakeRegistry()) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "content": "local reply",
+        "session_id": payload["session_id"],
+        "profile": "review",
+        "pipeline_id": "pipe-1",
+        "stage_index": 2,
+        "operation_id": "pipe-1:stage-2",
+    }
+
+
 def test_provider_cli_command_mapping():
     from most.cli_chat import (
         command_for,
