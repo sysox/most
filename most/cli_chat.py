@@ -38,10 +38,12 @@ def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[
         if writable:
             return ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", prompt)
         return ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", prompt)
+    if provider == "claude":
+        if writable:
+            return ("-p", "--permission-mode", "acceptEdits", prompt)
+        return ("-p", prompt)
     if writable:
         raise ValueError(f"writable mode is not implemented for {provider}")
-    if provider == "claude":
-        return ("-p", prompt)
     if provider == "gemini":
         return ("-p", prompt)
     if provider == "agy":
@@ -201,8 +203,16 @@ def run_cli_chat(args: Namespace) -> int:
             mcp_servers = list(dict.fromkeys(["ddg_search", *mcp_servers]))
     elif mcp_servers:
         raise SystemExit("--mcp-server requires --credential-provider einfra")
-    sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
-    sandbox.mkdir(parents=True, exist_ok=True)
+    selected_workspace = getattr(args, "workspace", None)
+    if selected_workspace is not None:
+        sandbox = Path(selected_workspace).resolve()
+        if not sandbox.is_dir():
+            raise SystemExit(f"workspace directory not found: {sandbox}")
+        if not writable:
+            raise SystemExit("--workspace requires --writable so file access is explicit")
+    else:
+        sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
+        sandbox.mkdir(parents=True, exist_ok=True)
     sessions = SessionService(args.data_root)
     session = sessions.create(args.title)
     configuration = AIConfiguration(

@@ -68,8 +68,9 @@ def test_provider_cli_command_mapping():
     assert command_for("agy", "hello") == ("--output-format", "text", "--sandbox", "--print", "hello")
     assert command_for("opencode", "hello") == ("run", "hello")
     assert command_for("codex", "hello", writable=True) == ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "hello")
+    assert command_for("claude", "hello", writable=True) == ("-p", "--permission-mode", "acceptEdits", "hello")
     with pytest.raises(ValueError, match="writable mode"):
-        command_for("claude", "hello", writable=True)
+        command_for("gemini", "hello", writable=True)
     environment, variable = credential_environment("claude", "einfra", "agentic")
     assert environment["ANTHROPIC_BASE_URL"] == "https://llm.ai.e-infra.cz/"
     assert environment["ANTHROPIC_MODEL"] == "agentic"

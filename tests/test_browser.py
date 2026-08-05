@@ -85,6 +85,12 @@ def test_tandem_journal_context_flags_are_available_on_cli_commands():
         assert (args.profile, args.pipeline_id, args.stage_index) == ("coding", "pipe-1", 1)
 
 
+def test_cli_chat_supports_agent_alias():
+    args = build_parser().parse_args(["cli-chat", "--agent", "claude", "--writable"])
+    assert args.agent == "claude"
+    assert args.provider is None
+
+
 def test_direct_cerit_chat_sensitive_guard_uses_catalog():
     from pathlib import Path
 

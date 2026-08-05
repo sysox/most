@@ -159,12 +159,16 @@ def build_parser() -> argparse.ArgumentParser:
     policy_check.add_argument("--provider", required=True)
     policy_check.add_argument("--model")
     cli_chat = subparsers.add_parser("cli-chat", help="communicate through an installed provider CLI")
-    cli_chat.add_argument("provider", choices=("codex", "claude", "gemini", "agy", "opencode"))
+    cli_chat.add_argument("provider", nargs="?", choices=("codex", "claude", "gemini", "agy", "opencode"))
+    cli_chat.add_argument("--agent", choices=("codex", "claude", "gemini", "agy", "opencode"),
+                          help="named alias for the provider positional argument")
     cli_chat.add_argument("prompt", nargs="?")
     cli_chat.add_argument("--title", default="Provider CLI chat")
     cli_chat.add_argument("--allow-unknown-connectivity", action="store_true", help="approve opaque provider CLI network routing")
     cli_chat.add_argument("--writable", action="store_true",
-                          help="opt into Codex workspace-write mode; default is read-only")
+                          help="opt into provider file edits; target a repository with --workspace")
+    cli_chat.add_argument("--workspace", type=Path,
+                          help="explicit working directory; required to edit a target repository")
     cli_chat.add_argument("--credential-provider", choices=("einfra",),
                           help="route CLI authentication through a stored provider credential")
     cli_chat.add_argument("--model", help="provider model alias when using --credential-provider")
@@ -321,6 +325,11 @@ def main(argv: list[str] | None = None) -> int:
         from .browser_chat import run_browser_chat
         return run_browser_chat(args)
     if args.command == "cli-chat":
+        if args.provider and args.agent and args.provider != args.agent:
+            raise SystemExit("provider and --agent must identify the same CLI")
+        args.provider = args.provider or args.agent
+        if args.provider is None:
+            raise SystemExit("cli-chat requires a provider or --agent")
         from .cli_chat import run_cli_chat
         return run_cli_chat(args)
     if args.command == "inspect-execution":
