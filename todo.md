@@ -389,7 +389,10 @@ and [e-INFRA OIDC integration example](https://docs.cerit.io/en/docs/operators/m
 - [ ] When next touching `ai-chat`'s provider client code, consider
   replacing the per-provider custom clients (openai, anthropic, gemini,
   einfra) with LiteLLM SDK calls. Not a standalone task — bundle with
-  other api-route work.
+  other api-route work. Evaluated now and intentionally deferred: direct SDK
+  calls would bypass MOST's injected transport and its exact credential/
+  journaling boundary, while current provider clients have no active
+  compatibility problem.
 
 ---
 

@@ -17,7 +17,13 @@ directly.
 Payoff: adding a new api-route provider becomes config, not a new client
 class. e-INFRA docs already recommend it for exactly this reason.
 Status: refactor, not a missing feature — current custom clients work,
-this just reduces future maintenance cost.
+this just reduces future maintenance cost. Evaluated for the current
+architecture: MOST deliberately injects a standard-library transport so
+tests and the execution journal can inspect the exact destination, payload,
+and credential boundary. A direct LiteLLM call would bypass that seam and add
+a large runtime dependency without a current feature need. Keep the explicit
+clients until a concrete provider-compatibility problem justifies a transport
+adapter around LiteLLM.
 
 ### MCP — mechanism only
 Replaces: nothing broken today, but formalizes tool-attach for the `cli`
