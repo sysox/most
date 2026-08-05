@@ -24,3 +24,12 @@ jobs:
         shell: bash
       - name: Run lint
         run: uv run ruff check most tests
+      - name: Checkout Tandem contract test
+        uses: actions/checkout@v4
+        with:
+          repository: sysox/tandem
+          path: tandem
+      - name: Run Tandem-to-MOST contract test
+        run: uv run pytest tandem/tests/test_most_contract.py
+        env:
+          MOST_CONTRACT_MOST_ROOT: ${{ github.workspace }}
