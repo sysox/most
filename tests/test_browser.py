@@ -72,6 +72,18 @@ def test_policy_check_is_standalone_and_structured(capsys):
     assert output["reason"] == "browser-chat is not allowed for sensitive workloads"
 
 
+def test_policy_check_rejects_unverified_einfra_model(capsys):
+    from most.cli import main
+
+    assert main([
+        "policy-check", "--sensitivity-tier", "sensitive", "--route", "ai-chat",
+        "--provider", "einfra", "--model", "not-in-catalog",
+    ]) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["allowed"] is False
+    assert "not eligible" in output["reason"]
+
+
 def test_tandem_journal_context_flags_are_available_on_cli_commands():
     for command, extra in (
         ("cli-chat", ["codex"]),

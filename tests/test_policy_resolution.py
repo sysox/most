@@ -42,3 +42,20 @@ def test_standalone_route_policy_decision_matches_execution_enforcement():
     assert decision.reason == "browser-chat is not allowed for sensitive workloads"
     with pytest.raises(PermissionError, match=decision.reason):
         enforce_route_sensitivity("browser", "sensitive")
+
+
+def test_model_policy_check_does_not_require_credentials(tmp_path):
+    from most.policies import model_policy_reason
+
+    catalog = tmp_path / "catalog.yaml"
+    catalog.write_text("""
+providers:
+  - id: einfra
+    models:
+      - id: safe
+        is_external_passthrough: false
+      - id: unknown
+        is_external_passthrough: true
+""", encoding="utf-8")
+    assert model_policy_reason("einfra", "safe", "sensitive", catalog) is None
+    assert "not eligible" in model_policy_reason("einfra", "unknown", "sensitive", catalog)

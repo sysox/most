@@ -158,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
     policy_check.add_argument("--route", required=True, choices=("browser-chat", "cli-chat", "ai-chat", "cerit-chat"))
     policy_check.add_argument("--provider", required=True)
     policy_check.add_argument("--model")
+    policy_check.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     cli_chat = subparsers.add_parser("cli-chat", help="communicate through an installed provider CLI")
     cli_chat.add_argument("provider", nargs="?", choices=("codex", "claude", "gemini", "agy", "opencode"))
     cli_chat.add_argument("--agent", choices=("codex", "claude", "gemini", "agy", "opencode"),
@@ -223,19 +224,21 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, default=str))
         return 0
     if args.command == "policy-check":
-        from .policies import route_policy_decision
+        from .policies import model_policy_reason, route_policy_decision
 
         access_method = "browser" if args.route == "browser-chat" else "provider-cli" if args.route == "cli-chat" else "openai-compatible"
         decision = route_policy_decision(access_method, args.sensitivity_tier)
+        model_reason = model_policy_reason(args.provider, args.model, args.sensitivity_tier, args.catalog)
+        allowed = decision.allowed and model_reason is None
         print(json.dumps({
-            "allowed": decision.allowed,
-            "reason": decision.reason,
+            "allowed": allowed,
+            "reason": model_reason or decision.reason,
             "route": args.route,
             "provider": args.provider,
             "model": args.model,
             "sensitivity_tier": args.sensitivity_tier,
         }))
-        return 0 if decision.allowed else 1
+        return 0 if allowed else 1
     if args.command == "chat":
         return run_chat(args)
     if args.command == "cerit-chat":

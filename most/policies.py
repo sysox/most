@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from .models import ExposureAction, OverflowPolicy
 
@@ -45,6 +48,23 @@ def route_policy_decision(access_method_id: str, sensitivity_tier: str | None) -
     if access_method_id == "browser" and sensitivity_tier == "sensitive":
         return RoutePolicyDecision(False, "browser-chat is not allowed for sensitive workloads", access_method_id, sensitivity_tier)
     return RoutePolicyDecision(True, "route is allowed for the requested sensitivity tier", access_method_id, sensitivity_tier)
+
+
+def model_policy_reason(provider_id: str, model_id: str | None, sensitivity_tier: str | None,
+                        catalog_path: Path = Path("ai-catalog.yaml")) -> str | None:
+    """Return a model-policy denial without reading credentials or calling a provider."""
+    if sensitivity_tier != "sensitive" or provider_id != "einfra" or model_id is None:
+        return None
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    for provider in catalog.get("providers", []) if isinstance(catalog, dict) else []:
+        if not isinstance(provider, dict) or provider.get("id") != provider_id:
+            continue
+        for model in provider.get("models", []):
+            if isinstance(model, dict) and model.get("id") == model_id:
+                if model.get("is_external_passthrough") is False:
+                    return None
+                return "e-INFRA model is not eligible for sensitive workloads; passthrough status must be explicitly false"
+    return "e-INFRA model is not eligible for sensitive workloads; model is not explicitly verified in the catalog"
 
 
 def enforce_route_sensitivity(access_method_id: str, sensitivity_tier: str | None) -> None:
