@@ -83,26 +83,27 @@ def credential_environment(cli: str, provider: str, model: str | None) -> tuple[
     raise ValueError(f"e-INFRA credentials are not implemented for {cli}")
 
 
-def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
+def mcp_config_payload(server_names: list[str], operation_id: str | None = None) -> dict[str, object]:
     unknown = sorted(set(server_names) - MCP_SERVERS.keys())
     if unknown:
         raise ValueError(f"unknown e-INFRA MCP server(s): {', '.join(unknown)}")
-    return {
+    payload = {
         "mcpServers": {
             name: {
                 "type": "http",
                 "url": MCP_SERVERS[name],
-                "headers": {
-                    "Authorization": "Bearer ${MOST_MCP_AUTH}",
-                    "X-Tandem-Operation-Id": "${MOST_TANDEM_OPERATION_ID}",
-                },
+                "headers": {"Authorization": "Bearer ${MOST_MCP_AUTH}"},
             }
             for name in dict.fromkeys(server_names)
         }
     }
+    if operation_id:
+        for server in payload["mcpServers"].values():
+            server["headers"]["X-Tandem-Operation-Id"] = "${MOST_TANDEM_OPERATION_ID}"
+    return payload
 
 
-def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[str, object]:
+def opencode_config_payload(model: str | None, server_names: list[str], operation_id: str | None = None) -> dict[str, object]:
     payload: dict[str, object] = {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
@@ -126,13 +127,13 @@ def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[
                 "url": MCP_SERVERS[name],
                 "enabled": True,
                 "oauth": False,
-                "headers": {
-                    "Authorization": "Bearer {env:MOST_MCP_AUTH}",
-                    "X-Tandem-Operation-Id": "{env:MOST_TANDEM_OPERATION_ID}",
-                },
+                "headers": {"Authorization": "Bearer {env:MOST_MCP_AUTH}"},
             }
             for name in dict.fromkeys(server_names)
         }
+        if operation_id:
+            for server in payload["mcp"].values():
+                server["headers"]["X-Tandem-Operation-Id"] = "{env:MOST_TANDEM_OPERATION_ID}"
     return payload
 
 
@@ -172,7 +173,9 @@ class ProviderCLIAdapter:
         opencode_model = configuration.get("adapter_options", {}).get("opencode_model")
         if self.provider == "opencode" and opencode_model:
             environment = dict(runtime_configuration["adapter_options"].get("environment", {}))
-            environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config_payload(str(opencode_model), list(mcp_servers)))
+            environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(
+                opencode_config_payload(str(opencode_model), list(mcp_servers), str(operation_id) if operation_id else None)
+            )
             runtime_configuration["adapter_options"]["environment"] = environment
         if mcp_servers:
             if self.provider == "claude":
@@ -181,7 +184,7 @@ class ProviderCLIAdapter:
                     dir=self.working_directory, delete=False,
                 ) as handle:
                     mcp_path = Path(handle.name)
-                    json.dump(mcp_config_payload(list(mcp_servers)), handle)
+                    json.dump(mcp_config_payload(list(mcp_servers), str(operation_id) if operation_id else None), handle)
                 runtime_configuration["adapter_options"]["arguments"] = [*arguments, "--mcp-config", str(mcp_path)]
             elif self.provider != "opencode":
                 raise ValueError("MCP is currently supported only for Claude and OpenCode CLI")

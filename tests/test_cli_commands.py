@@ -81,12 +81,17 @@ def test_provider_cli_command_mapping():
     payload = mcp_config_payload(["ddg_search"])
     assert payload["mcpServers"]["ddg_search"]["url"].endswith("/ddg_search/mcp")
     assert "${MOST_MCP_AUTH}" in str(payload)
+    assert "X-Tandem-Operation-Id" not in str(payload)
+    tandem_payload = mcp_config_payload(["ddg_search"], "pipe-1:stage-0")
+    assert tandem_payload["mcpServers"]["ddg_search"]["headers"]["X-Tandem-Operation-Id"] == "${MOST_TANDEM_OPERATION_ID}"
     with pytest.raises(ValueError, match="unknown e-INFRA MCP"):
         mcp_config_payload(["missing"])
     config = opencode_config_payload("mini", ["ddg_search"])
     assert config["model"] == "einfra/mini"
     assert config["mcp"]["ddg_search"]["headers"]["Authorization"] == "Bearer {env:MOST_MCP_AUTH}"
-    assert config["mcp"]["ddg_search"]["headers"]["X-Tandem-Operation-Id"] == "{env:MOST_TANDEM_OPERATION_ID}"
+    assert "X-Tandem-Operation-Id" not in config["mcp"]["ddg_search"]["headers"]
+    tandem_config = opencode_config_payload("mini", ["ddg_search"], "pipe-1:stage-0")
+    assert tandem_config["mcp"]["ddg_search"]["headers"]["X-Tandem-Operation-Id"] == "{env:MOST_TANDEM_OPERATION_ID}"
 
 
 def test_cli_chat_sensitive_einfra_guard_uses_catalog():
