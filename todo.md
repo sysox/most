@@ -10,12 +10,23 @@ without re-reading source docs. Source: docs.cerit.io/en/docs/ai-as-a-service/*
 
 ## 1. e-INFRA CZ as a provider — credential profile
 
+**CORRECTION after re-reading current README: this is LARGELY ALREADY
+IMPLEMENTED, not a gap.** Confirmed already present in most:
+- `most credentials set einfra` (keyring storage)
+- `most cerit-chat --model mini` (and other CERIT aliases)
+- `most catalog-audit --provider einfra --show-models`
+- e-INFRA already included in `./scripts/smoke-test-ai.sh` and the
+  per-provider integration test pattern (`MOST_PROVIDER=claude` style)
+- Aliases confirmed live: `mini`, `coder`, `agentic`, `kimi`, `glm`,
+  `deepseek`
+
+Only the narrower items below remain open.
+
 ### Facts
 - OpenAI-compatible endpoint: `https://llm.ai.e-infra.cz/v1`
 - Anthropic-compatible endpoint (for Claude Code specifically):
   `https://llm.ai.e-infra.cz/` (note: no `/v1`, Claude Code appends its own path)
-- Auth: bearer API key, generated at https://chat.ai.e-infra.cz
-  (Settings > Account > API keys). Not an OAuth token — a static key.
+- Auth env var used by most's own test harness: `CERIT_API_KEY`
 - Cost: institutional, no per-token price. Treat as zero-cost in
   `pricing-update.yaml` / catalog pricing metadata (same convention already
   used for local/Ollama providers).
@@ -23,36 +34,33 @@ without re-reading source docs. Source: docs.cerit.io/en/docs/ai-as-a-service/*
   time"); exact names are retired when replaced. **Only the alias set below
   is a stable contract.**
 
-### Implementation
-- [ ] Add `einfra` as a provider entry in `ai-catalog.yaml`, `route: api`
-  and `route: cli` both valid (see section 2 for cli).
-- [ ] `most credentials set einfra` — store API key via existing keyring
-  backend (same pattern as openai/anthropic credential storage already in
-  place).
-- [ ] New CLI command or extend `ai-chat`:
-  ```
-  uv run python -m most --data-root ./application-data ai-chat \
-    --provider einfra --model agentic --route api "Hello"
-  ```
-  Base URL for this provider is fixed to `https://llm.ai.e-infra.cz/v1`,
-  do not require `--base-url` flag for it (unlike the generic OpenAI-compatible
-  path which already supports `--base-url` for arbitrary endpoints).
+### Remaining implementation tasks
+- [ ] Confirm whether `thinker` and `deepseek-thinking` aliases exist in
+  the current catalog — README only explicitly lists mini/coder/agentic/
+  kimi/glm/deepseek. Add if missing (see alias table below).
+- [ ] Confirm whether reasoning-mode control (`chat_template_kwargs` for
+  DeepSeek/GLM families, see below) is implemented in the `ai-chat`
+  payload builder — unconfirmed either way, verify before assuming gap
+  or assuming done.
+- [ ] Naming/duplication check: `cerit-chat --model mini` and
+  `ai-chat --provider einfra` appear to be two separate entry points to
+  the same provider. Confirm whether this is intentional (legacy alias
+  command vs. generic unified command) or accidental duplication — pick
+  one canonical path if it's the latter.
+- [ ] Confirm catalog entries mark `stability: alias` vs
+  `stability: volatile` for e-INFRA models — not confirmed present,
+  low-cost to add if missing.
 
-### Alias table — hardcode into `ai-catalog.yaml`, refresh via catalog-audit
+### Alias table — reference, cross-check against current ai-catalog.yaml
 | Alias               | Resolves to (as of 2026-06-30) | Notes                          |
 |----------------------|----------------------------------|----------------------------------|
-| `mini`               | gpt-oss-120b                     | fast, general purpose            |
-| `coder`, `agentic`   | qwen3.5-122b                     | coding/agentic default           |
-| `thinker`            | deepseek-v4-flash-thinking        | reasoning forced on              |
-| `kimi`               | kimi-k2.7                        | 1M context, multimodal, agentic  |
-| `glm`                | glm-5.2                          | strongest on Aider polyglot bench|
-| `deepseek`           | deepseek-v4-flash                | reasoning off by default         |
-| `deepseek-thinking`  | deepseek-v4-flash-thinking        | reasoning forced on              |
-
-Catalog entries for these should mark `stability: alias` vs. exact model
-names which should be marked `stability: volatile` — surfaces the
-distinction in `catalog-options`/`inspect-*` output so reproducibility-
-sensitive work (thesis-adjacent, per e-INFRA's own warning) picks aliases.
+| `mini`               | gpt-oss-120b                     | fast, general purpose — confirmed live |
+| `coder`, `agentic`   | qwen3.5-122b                     | coding/agentic default — confirmed live |
+| `thinker`            | deepseek-v4-flash-thinking        | reasoning forced on — not confirmed live |
+| `kimi`               | kimi-k2.7                        | 1M context, multimodal, agentic — confirmed live |
+| `glm`                | glm-5.2                          | strongest on Aider polyglot bench — confirmed live |
+| `deepseek`           | deepseek-v4-flash                | reasoning off by default — confirmed live |
+| `deepseek-thinking`  | deepseek-v4-flash-thinking        | reasoning forced on — not confirmed live |
 
 ### Reasoning mode control (model-specific quirk, needed for `ai-chat` payload builder)
 - DeepSeek v4 family: reasoning **off** by default. Enable via
@@ -62,42 +70,84 @@ sensitive work (thesis-adjacent, per e-INFRA's own warning) picks aliases.
   `chat_template_kwargs: {"enable_thinking": false}`.
 - Implement as a provider-specific request-body transform keyed off model
   family prefix (`deepseek-*` vs `glm-*`), not a global flag.
+- Status: unconfirmed whether already implemented — verify before treating as a gap.
 
 ### Embedding models available (for future RAG work, not blocking)
 `qwen3-embedding-4b` (2560-dim, 40960 ctx, multilingual), `qwen3-reranker-4b`,
 `nomic-embed-text-v1.5`/`v2-moe` (768-dim, English), `mxbai-embed-large`,
 `multilingual-e5-large-instruct`. Same endpoint, `/v1` embeddings path.
 - [ ] Add these as catalog entries under the `einfra` provider with
-  `capability: embedding` — currently only listed as facts, no actual
+  `capability: embedding` — currently only listed as facts, no confirmed
   catalog entry exists for them yet.
 
-### Gap: modality commands are currently Gemini-only, not provider-generic
-Per most's own README, the existing `ai-embed` / `ai-image` /
-`ai-image-analyze` / `ai-speech` / `ai-transcribe` commands are invoked
-with `--model models/gemini-*` and described as "these commands
-currently target the Google Gemini API" — i.e. **these commands are not
-provider-agnostic today**, unlike `ai-chat`. This blocks using
-e-INFRA's embedding models and Whisper (`whisper-large-v3`, API-only)
-through them.
-- [ ] Generalize `ai-embed` and `ai-transcribe` (highest priority — these
-  unlock e-INFRA embeddings and Whisper) to accept `--provider einfra`
-  the same way `ai-chat` already does, instead of being hardcoded to the
-  Gemini client.
-- [ ] `ai-image` / `ai-image-analyze` generalization is lower priority —
-  e-INFRA's own image-generation support via API is unconfirmed (WebUI
-  exposes an "Image" toggle on chat models, unclear if this maps to a
-  standalone API-callable image-generation endpoint). Verify before
-  implementing, don't assume it exists.
+### Modality command generalization — corrected status
+Per current README: `ai-embed`, `ai-image`, `ai-image-analyze`, and
+`ai-speech` are explicitly stated to "currently target the Google Gemini
+API" — confirmed still Gemini-only, real gap.
+
+**Correction: `ai-transcribe` is NOT Gemini-locked.** README shows
+`ai-transcribe --provider openai --model whisper-1` — it already accepts
+a `--provider` flag and is provider-generic. This means adding e-INFRA
+Whisper support is much smaller than previously scoped:
+- [ ] Add `whisper-large-v3` (API-only, per e-INFRA docs) as an einfra
+  catalog entry with `capability: transcription`. If the provider
+  adapter is truly generic (as `--provider openai` suggests), this may
+  be a catalog-only change — verify, don't assume code changes needed.
+- [ ] `ai-embed` / `ai-image` / `ai-image-analyze` / `ai-speech`
+  generalization to einfra remains real work — these have no `--provider`
+  flag shown anywhere in current docs, confirmed Gemini-specific.
+  Lower priority: e-INFRA's own image-generation API availability is
+  still unconfirmed (WebUI has an "Image" toggle on chat models, unclear
+  if it's a standalone API-callable endpoint) — verify before implementing.
 
 ---
 
 ## 2. Local file access — e-INFRA as backend for existing cli-chat wrappers
 
+### CORRECTED understanding — sandbox mode is NOT uniform across wrappers
+Earlier version of this doc assumed all `cli-chat` wrappers grant equal
+file read/write access because the underlying binaries are agentic.
+**Current README contradicts this for codex specifically:**
+
+> "Codex runs with an ephemeral, read-only, non-repository execution."
+
+This means `most cli-chat codex` today does **not** write to your actual
+project files by default — it's sandboxed to a throwaway, read-only,
+non-repo context. This is different from what CERIT's own docs show for
+Claude Code (`~/.claude/settings.json` with `defaultMode: acceptEdits`,
+which does allow writes) and from `agy`, which has its own permission
+system (`/permissions` in an interactive session, explicit warning
+against `--dangerously-skip-permissions`).
+
+**Practical consequence: "local file access via cli-chat" is not one
+capability, it's three different sandbox postures, one per wrapper.**
+Before building anything further on top of this (tandem profiles,
+pipelines), the actual current behavior must be audited and made
+explicit — not assumed uniform.
+
+### Implementation tasks — sandbox audit (do this FIRST, blocks correctness of everything else in this section)
+- [ ] Audit and document current write-access behavior for each
+  `cli-chat` wrapper (claude / codex / agy) as most actually configures
+  it today — not what upstream CLI defaults to, what most's own
+  invocation sets.
+- [ ] If codex's ephemeral/read-only/non-repo mode is an intentional
+  safety default (plausible — matches most's general cautious posture),
+  expose an explicit opt-in for write-capable execution (e.g. a
+  `--writable` flag or task-profile-level `write: true`) rather than
+  leaving "local file access" as an implicit, wrapper-dependent
+  assumption.
+- [ ] This directly affects tandem: a `coding` task profile that expects
+  actual file edits must specify a wrapper/mode that is confirmed
+  writable — defaulting to codex's current mode would silently produce
+  no file changes and could be mistaken for a bug rather than a
+  deliberate safety default.
+
 ### Facts
 Claude Code, Codex, and OpenCode all work unmodified against e-INFRA by
-pointing their own env vars at it. File read/write/diff capability is
-entirely inherited from the CLI itself — **no new tool-loop code needed in
-most**.
+pointing their own env vars at it. Whatever file access each CLI grants
+(subject to the sandbox-mode correction above) is inherited from the CLI
+itself — **no new tool-loop code needed in most**, only correct
+plumbing of credentials/config plus the sandbox-mode audit above.
 
 ### Claude Code config (env vars)
 ```
@@ -154,8 +204,13 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
   before invoking the binary, rather than requiring the user to export
   them manually in their shell. This is the actual "local file access"
   deliverable — a config-generation step, not new sandboxing code.
+  Note: existing wrappers already take an `--allow-unknown-connectivity`
+  flag (confirmed for codex/claude/agy in current README) — the new
+  einfra credential plumbing should follow the same flag/option
+  conventions rather than inventing a new pattern.
 - [ ] Add `opencode` as a fourth `cli-chat` target alongside
-  claude/codex/agy (currently missing entirely from most).
+  claude/codex/agy (currently confirmed missing from most — README lists
+  only claude/codex/agy).
 - [ ] Document/enforce: never export these env vars manually in a shell
   outside most — breaks journaling guarantee (see conversation decision:
   "always `most cli-chat`, never bare `claude`").
@@ -173,7 +228,16 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
 
 ### Facts
 Hosted MCP servers, base path `https://llm.ai.e-infra.cz/[name]/mcp`,
-same bearer auth as the chat API.
+same bearer auth as the chat API. No MCP mechanism is mentioned anywhere
+in most's current README — confirmed fully a gap, not partially done
+like section 1 turned out to be.
+
+Reusable existing infrastructure: most already has `provider-health.yaml`
+and a `catalog-health` command tracking provider call failures generically.
+The MCP attach mechanism doesn't need this directly, but if MCP server
+attach ever fails (auth, unreachable), follow the same
+record-and-report pattern already established for provider health rather
+than inventing a separate error-tracking scheme.
 
 | Server      | Purpose                                        |
 |-------------|--------------------------------------------------|
@@ -348,12 +412,23 @@ What's NOT confirmed and needs the research spike:
 
 ## Suggested implementation order for Codex
 
-1. Section 1 (einfra provider + alias catalog) — foundation for everything else
-2. Section 2 (cli-chat config generation for claude/codex/opencode against einfra) — the actual file-access deliverable
-3. Section 3 (ddg_search auto-attach, MCP mechanism) — small, depends on 1+2
-4. Section 4 (exposure-policy sensitive-tier rule) — independent, can parallelize
-5. Section 5 (journal fields) — small, unblocks tandem's first integration
-6. Section 6 (JSON Schema) — independent, cheap, do anytime
-7. Section 6 (OIDC device-flow) — needs research spike first, not pure implementation
-8. Section 6 (LiteLLM) — opportunistic, no deadline
-9. Section 7 — do not implement now
+1. **Section 2 sandbox audit** (claude/codex/agy write-access modes) —
+   do this first, it's a correctness check on an assumption everything
+   else in section 2 depends on, and it's cheap (reading + testing
+   existing behavior, not new code).
+2. Section 1 remaining items (alias/reasoning-mode confirmation, einfra
+   whisper catalog entry) — mostly verification + small catalog edits,
+   not the large integration originally scoped; most of section 1 is
+   already implemented.
+3. Section 2 config-generation (cli-chat env/config plumbing for einfra)
+   — the actual file-access deliverable, once sandbox audit confirms
+   which wrappers are meaningfully writable.
+4. Section 3 (ddg_search auto-attach, MCP mechanism) — confirmed fully
+   a gap, depends on 1+2 for the einfra+claude combination it targets.
+5. Section 4 (exposure-policy sensitive-tier rule, generalized to all
+   browser-chat providers) — independent, can parallelize with anything.
+6. Section 5 (journal fields) — small, unblocks tandem's first integration.
+7. Section 6 (JSON Schema) — independent, cheap, do anytime.
+8. Section 6 (OIDC device-flow) — needs research spike first, not pure implementation.
+9. Section 6 (LiteLLM) — opportunistic, no deadline.
+10. Section 7 — do not implement now.
