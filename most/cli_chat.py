@@ -274,24 +274,17 @@ def run_cli_chat(args: Namespace) -> int:
 def _enforce_einfra_model_sensitivity(model: str | None, sensitivity_tier: str, catalog: Path) -> None:
     if sensitivity_tier == "normal":
         return
-    if sensitivity_tier != "sensitive":
-        raise SystemExit(f"unsupported sensitivity tier: {sensitivity_tier}")
+    from .model_options import load_model_options, select_model
+
     if not model:
         raise SystemExit("--model is required for sensitive e-INFRA CLI sessions")
-    from .model_options import load_model_options
-
-    options = load_model_options(catalog, Path(".most-no-discovery.yaml"))
-    eligible = any(
-        option["provider_id"] == "einfra"
-        and option["model_id"] == model
-        and option.get("is_external_passthrough") is False
-        for option in options
-    )
-    if not eligible:
-        raise SystemExit(
-            f"cannot use einfra/{model} for sensitive workloads; "
-            "catalog must explicitly mark the model as on-premise"
+    try:
+        select_model(
+            load_model_options(catalog, Path(".most-no-discovery.yaml")),
+            "einfra", model, sensitivity_tier=sensitivity_tier,
         )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _transcript_prompt(messages: list[dict[str, object]]) -> str:

@@ -698,19 +698,15 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
 def _enforce_einfra_model_sensitivity(model: str, sensitivity_tier: str, catalog: Path) -> None:
     if sensitivity_tier == "normal":
         return
-    if sensitivity_tier != "sensitive":
-        raise SystemExit(f"unsupported sensitivity tier: {sensitivity_tier}")
-    from .model_options import load_model_options
+    from .model_options import load_model_options, select_model
 
-    matches = [
-        option for option in load_model_options(catalog, Path(".most-no-discovery.yaml"))
-        if option["provider_id"] == "einfra" and option["model_id"] == model
-    ]
-    if not any(option.get("is_external_passthrough") is False for option in matches):
-        raise SystemExit(
-            f"cannot use einfra/{model} for sensitive workloads; "
-            "catalog must explicitly mark the model as on-premise"
+    try:
+        select_model(
+            load_model_options(catalog, Path(".most-no-discovery.yaml")),
+            "einfra", model, sensitivity_tier=sensitivity_tier,
         )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
