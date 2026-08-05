@@ -50,6 +50,11 @@ def test_browser_chat_parser_supports_sensitivity_tier():
     assert args.sensitivity_tier == "sensitive"
 
 
+def test_ai_chat_parser_supports_sensitivity_tier():
+    args = build_parser().parse_args(["ai-chat", "--model", "mini", "--sensitivity-tier", "sensitive"])
+    assert args.sensitivity_tier == "sensitive"
+
+
 def test_browser_chat_supports_cerit_webui():
     args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
     assert args.provider == "cerit"

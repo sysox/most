@@ -72,7 +72,7 @@ def refresh_if_stale(catalog_path: Path, discovered_path: Path, *, max_age_hours
 def select_model(
     options: list[dict[str, Any]], provider_id: str | None, model_id: str, route: str = "auto",
     required_capability: str | None = None, required_input_modality: str | None = None,
-    required_output_modality: str | None = None,
+    required_output_modality: str | None = None, sensitivity_tier: str | None = None,
 ) -> dict[str, Any]:
     matches = [option for option in options if option["model_id"] == model_id and (provider_id is None or option["provider_id"] == provider_id)]
     if not matches:
@@ -84,6 +84,19 @@ def select_model(
         raise ValueError(f"model {model_id!r} does not accept {required_input_modality} input")
     if required_output_modality and not any(required_output_modality in option.get("output_modalities", []) for option in matches):
         raise ValueError(f"model {model_id!r} does not produce {required_output_modality} output")
+    if sensitivity_tier not in {None, "normal", "sensitive"}:
+        raise ValueError(f"unsupported sensitivity tier: {sensitivity_tier}")
+    if sensitivity_tier == "sensitive":
+        safe_matches = [
+            option for option in matches
+            if option.get("provider_id") != "einfra" or option.get("is_external_passthrough") is False
+        ]
+        if not safe_matches:
+            raise ValueError(
+                f"model {model_id!r} is not eligible for sensitive workloads; "
+                "e-INFRA passthrough status must be explicitly false"
+            )
+        matches = safe_matches
     if route != "auto":
         matches = [option for option in matches if option["access_method"] == route]
         if not matches:
@@ -119,6 +132,7 @@ def _option(provider: dict[str, Any], method: dict[str, Any], model_id: str, mod
         "input_modalities": model_modalities(provider_id, model_id, model)[0],
         "output_modalities": model_modalities(provider_id, model_id, model)[1],
         "status": model.get("status", "unknown"),
+        "is_external_passthrough": model.get("is_external_passthrough"),
         "access_method": method_id,
         "adapter_type": "",
         "endpoint": method.get("endpoint"),

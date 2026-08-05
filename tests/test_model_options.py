@@ -45,6 +45,29 @@ def test_select_model_does_not_prefer_uncredentialed_compatible_route():
     assert selected["access_method"] == "api"
 
 
+def test_sensitive_selection_requires_explicitly_on_prem_einfra_model():
+    options = [
+        {
+            "provider_id": "einfra", "model_id": "safe", "capabilities": ["chat"],
+            "access_method": "openai-compatible", "endpoint": "https://example.invalid/v1",
+            "credential_env": "CERIT_API_KEY", "credential_available": True,
+            "is_external_passthrough": False,
+        },
+        {
+            "provider_id": "einfra", "model_id": "unknown", "capabilities": ["chat"],
+            "access_method": "openai-compatible", "endpoint": "https://example.invalid/v1",
+            "credential_env": "CERIT_API_KEY", "credential_available": True,
+        },
+    ]
+    assert select_model(options, "einfra", "safe", sensitivity_tier="sensitive")["model_id"] == "safe"
+    try:
+        select_model(options, "einfra", "unknown", sensitivity_tier="sensitive")
+    except ValueError as exc:
+        assert "not eligible for sensitive workloads" in str(exc)
+    else:
+        raise AssertionError("unverified e-INFRA model was accepted for sensitive work")
+
+
 def test_discovered_models_are_available_to_unified_options(tmp_path: Path):
     catalog = tmp_path / "catalog.yaml"
     discovered = tmp_path / "discovered.yaml"

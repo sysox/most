@@ -89,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
                          help="enable model reasoning when supported")
     unified.add_argument("--no-thinking", dest="thinking", action="store_false",
                          help="disable model reasoning when supported")
+    unified.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
+                         help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
     _add_capability_task_args(embed, "embedding", output_modality="embedding")
     embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
@@ -165,6 +167,8 @@ def _add_capability_task_args(command: argparse.ArgumentParser, capability: str,
     command.add_argument("--discovered", type=Path, default=Path("ai-discovered.yaml"))
     command.add_argument("--no-refresh", action="store_true")
     command.add_argument("--max-age-hours", type=float, default=24.0)
+    command.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
+                         help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -319,6 +323,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
     option = select_model(
         load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route,
         required_capability="chat",
+        sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
     )
     adapter_type = option["adapter_type"]
     if adapter_type == "openai-api":
@@ -347,6 +352,7 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
                 data_root=args.data_root, prompt=args.prompt, model=args.model,
                 api_key_env=option["credential_env"] or "CERIT_API_KEY", base_url="https://llm.ai.e-infra.cz/v1",
                 title=args.title, thinking=getattr(args, "thinking", None),
+                sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
             ))
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
@@ -455,6 +461,7 @@ def _select_capability_task(args: argparse.Namespace) -> tuple[dict[str, object]
             required_capability=args.required_capability,
             required_input_modality=args.required_input_modality,
             required_output_modality=args.required_output_modality,
+            sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
         )
     except ValueError as exc:
         # Model-selection failures are expected user errors (for example, asking
