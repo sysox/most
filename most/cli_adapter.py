@@ -63,7 +63,9 @@ class CLIAdapter:
             # environment variable; it is never written to observed arguments.
             environment = os.environ.copy()
             environment.update({str(key): str(value) for key, value in options.get("environment", {}).items()})
-            environment[str(options.get("credential_env_var", "MOST_CREDENTIAL"))] = credential
+            credential_variables = options.get("credential_env_vars") or [options.get("credential_env_var", "MOST_CREDENTIAL")]
+            for variable in credential_variables:
+                environment[str(variable)] = credential
         else:
             configured_environment = options.get("environment", {})
             if configured_environment:

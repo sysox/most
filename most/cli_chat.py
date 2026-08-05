@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 from argparse import Namespace
 from pathlib import Path
 
@@ -16,6 +18,17 @@ CLI_EXECUTABLES = {
     "claude": "claude",
     "gemini": "gemini",
     "agy": "agy",
+}
+
+MCP_SERVERS = {
+    "ddg_search": "https://llm.ai.e-infra.cz/ddg_search/mcp",
+    "DocFork": "https://llm.ai.e-infra.cz/DocFork/mcp",
+    "npmjs": "https://llm.ai.e-infra.cz/npmjs/mcp",
+    "solver": "https://llm.ai.e-infra.cz/solver/mcp",
+    "prolog": "https://llm.ai.e-infra.cz/prolog/mcp",
+    "k8scerit": "https://llm.ai.e-infra.cz/k8scerit/mcp",
+    "shadcn": "https://llm.ai.e-infra.cz/shadcn/mcp",
+    "tailwind": "https://llm.ai.e-infra.cz/tailwind/mcp",
 }
 
 
@@ -53,6 +66,22 @@ def credential_environment(cli: str, provider: str, model: str | None) -> tuple[
     raise ValueError(f"e-INFRA credentials are not implemented for {cli}")
 
 
+def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
+    unknown = sorted(set(server_names) - MCP_SERVERS.keys())
+    if unknown:
+        raise ValueError(f"unknown e-INFRA MCP server(s): {', '.join(unknown)}")
+    return {
+        "mcpServers": {
+            name: {
+                "type": "http",
+                "url": MCP_SERVERS[name],
+                "headers": {"Authorization": "Bearer ${MOST_MCP_AUTH}"},
+            }
+            for name in dict.fromkeys(server_names)
+        }
+    }
+
+
 class ProviderCLIAdapter:
     adapter_type = "provider-cli"
 
@@ -79,7 +108,23 @@ class ProviderCLIAdapter:
             **configuration,
             "adapter_options": {**configuration.get("adapter_options", {}), "arguments": arguments},
         }
-        result = self.cli.execute(request, runtime_configuration, credential)
+        mcp_path = None
+        mcp_servers = configuration.get("adapter_options", {}).get("mcp_servers", [])
+        if mcp_servers:
+            if self.provider != "claude":
+                raise ValueError("MCP is currently supported only for Claude CLI")
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", suffix=".json", prefix=".most-mcp-",
+                dir=self.working_directory, delete=False,
+            ) as handle:
+                mcp_path = Path(handle.name)
+                json.dump(mcp_config_payload(list(mcp_servers)), handle)
+            runtime_configuration["adapter_options"]["arguments"] = [*arguments, "--mcp-config", str(mcp_path)]
+        try:
+            result = self.cli.execute(request, runtime_configuration, credential)
+        finally:
+            if mcp_path is not None:
+                mcp_path.unlink(missing_ok=True)
         stdout, stderr, returncode = result["stdout"], result["stderr"], result["returncode"]
         if returncode != 0:
             raise RuntimeError(f"{self.provider} CLI exited with status {returncode}: {stderr or stdout}")
@@ -97,6 +142,7 @@ def run_cli_chat(args: Namespace) -> int:
     credential = None
     environment: dict[str, str] = {}
     credential_env_var = None
+    mcp_servers = list(getattr(args, "mcp_server", []) or [])
     if credential_provider:
         if args.provider not in {"codex", "claude"}:
             raise SystemExit("--credential-provider einfra currently supports only codex and claude")
@@ -104,6 +150,10 @@ def run_cli_chat(args: Namespace) -> int:
         credential = resolve_provider_credential(credential_provider)
         if not credential:
             raise SystemExit("missing einfra credential; run `most credentials set einfra` first")
+        if args.provider == "claude":
+            mcp_servers = list(dict.fromkeys(["ddg_search", *mcp_servers]))
+    elif mcp_servers:
+        raise SystemExit("--mcp-server requires --credential-provider einfra")
     sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
     sandbox.mkdir(parents=True, exist_ok=True)
     sessions = SessionService(args.data_root)
@@ -120,6 +170,8 @@ def run_cli_chat(args: Namespace) -> int:
             "arguments": list(command_for(args.provider, "<prompt>", writable=writable)),
             "environment": environment,
             "credential_env_var": credential_env_var,
+            "credential_env_vars": [value for value in (credential_env_var, "MOST_MCP_AUTH") if value],
+            "mcp_servers": mcp_servers,
         },
     )
     ConfigurationService(args.data_root).save(configuration)

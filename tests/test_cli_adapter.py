@@ -31,3 +31,24 @@ def test_provider_cli_uses_named_credential_environment(monkeypatch, tmp_path: P
     )
     assert result["content"] == "ok"
     assert captured["credential_env_var"] == "ANTHROPIC_AUTH_TOKEN"
+
+
+def test_provider_cli_removes_temporary_mcp_config(monkeypatch, tmp_path: Path):
+    adapter = ProviderCLIAdapter("claude", tmp_path)
+    captured = {}
+
+    def fake_execute(request, configuration, credential):
+        captured["arguments"] = configuration["adapter_options"]["arguments"]
+        config_path = Path(captured["arguments"][-1])
+        assert config_path.exists()
+        assert "secret" not in config_path.read_text(encoding="utf-8")
+        return {"stdout": "ok", "stderr": "", "returncode": 0}
+
+    monkeypatch.setattr(adapter.cli, "execute", fake_execute)
+    result = adapter.execute(
+        {"messages": [{"role": "user", "content": "hello"}]},
+        {"adapter_options": {"mcp_servers": ["ddg_search"]}},
+        "secret",
+    )
+    assert result["content"] == "ok"
+    assert not Path(captured["arguments"][-1]).exists()

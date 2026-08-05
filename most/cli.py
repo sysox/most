@@ -153,6 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--credential-provider", choices=("einfra",),
                           help="route CLI authentication through a stored provider credential")
     cli_chat.add_argument("--model", help="provider model alias when using --credential-provider")
+    cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
+                          help="attach an e-INFRA MCP server to Claude (repeatable)")
     return parser
 
 
