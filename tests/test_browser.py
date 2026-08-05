@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,17 @@ def test_ai_chat_parser_supports_sensitivity_tier():
 def test_cerit_chat_parser_supports_sensitivity_tier():
     args = build_parser().parse_args(["cerit-chat", "--model", "mini", "--sensitivity-tier", "sensitive"])
     assert args.sensitivity_tier == "sensitive"
+
+
+def test_policy_check_is_standalone_and_structured(capsys):
+    from most.cli import main
+
+    assert main([
+        "policy-check", "--sensitivity-tier", "sensitive", "--route", "browser-chat", "--provider", "gemini",
+    ]) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["allowed"] is False
+    assert output["reason"] == "browser-chat is not allowed for sensitive workloads"
 
 
 def test_direct_cerit_chat_sensitive_guard_uses_catalog():

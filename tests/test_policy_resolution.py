@@ -1,7 +1,12 @@
 import pytest
 
 from most.models import OverflowPolicy
-from most.policies import PolicyOverrides, enforce_route_sensitivity, resolve_policies
+from most.policies import (
+    PolicyOverrides,
+    enforce_route_sensitivity,
+    resolve_policies,
+    route_policy_decision,
+)
 
 
 def test_policy_precedence_records_sources():
@@ -29,3 +34,11 @@ def test_browser_route_is_blocked_for_sensitive_workloads():
 
 def test_non_browser_routes_can_carry_sensitive_workloads():
     enforce_route_sensitivity("official-cloud-api", "sensitive")
+
+
+def test_standalone_route_policy_decision_matches_execution_enforcement():
+    decision = route_policy_decision("browser", "sensitive")
+    assert decision.allowed is False
+    assert decision.reason == "browser-chat is not allowed for sensitive workloads"
+    with pytest.raises(PermissionError, match=decision.reason):
+        enforce_route_sensitivity("browser", "sensitive")

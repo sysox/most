@@ -147,6 +147,11 @@ def build_parser() -> argparse.ArgumentParser:
     browser_chat.add_argument("--profile", help="named persistent browser login profile (default: provider name)")
     browser_chat.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
                               help="workload sensitivity; sensitive workloads cannot use browser-chat")
+    policy_check = subparsers.add_parser("policy-check", help="preflight a route policy without starting a provider call")
+    policy_check.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), required=True)
+    policy_check.add_argument("--route", required=True, choices=("browser-chat", "cli-chat", "ai-chat", "cerit-chat"))
+    policy_check.add_argument("--provider", required=True)
+    policy_check.add_argument("--model")
     cli_chat = subparsers.add_parser("cli-chat", help="communicate through an installed provider CLI")
     cli_chat.add_argument("provider", choices=("codex", "claude", "gemini", "agy", "opencode"))
     cli_chat.add_argument("prompt", nargs="?")
@@ -204,6 +209,20 @@ def main(argv: list[str] | None = None) -> int:
             result["history"] = service.history()
         print(json.dumps(result, indent=2, default=str))
         return 0
+    if args.command == "policy-check":
+        from .policies import route_policy_decision
+
+        access_method = "browser" if args.route == "browser-chat" else "provider-cli" if args.route == "cli-chat" else "openai-compatible"
+        decision = route_policy_decision(access_method, args.sensitivity_tier)
+        print(json.dumps({
+            "allowed": decision.allowed,
+            "reason": decision.reason,
+            "route": args.route,
+            "provider": args.provider,
+            "model": args.model,
+            "sensitivity_tier": args.sensitivity_tier,
+        }))
+        return 0 if decision.allowed else 1
     if args.command == "chat":
         return run_chat(args)
     if args.command == "cerit-chat":

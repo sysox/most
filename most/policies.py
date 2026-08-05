@@ -30,12 +30,28 @@ class PolicyOverrides:
     explicit_exposure_override: bool = False
 
 
-def enforce_route_sensitivity(access_method_id: str, sensitivity_tier: str | None) -> None:
-    """Reject routes that cannot safely carry sensitive workload content."""
+@dataclass(frozen=True, slots=True)
+class RoutePolicyDecision:
+    allowed: bool
+    reason: str
+    access_method_id: str
+    sensitivity_tier: str | None
+
+
+def route_policy_decision(access_method_id: str, sensitivity_tier: str | None) -> RoutePolicyDecision:
+    """Return the preflight decision shared with execution-time enforcement."""
     if sensitivity_tier not in {None, "normal", "sensitive"}:
         raise ValueError(f"unsupported sensitivity tier: {sensitivity_tier}")
     if access_method_id == "browser" and sensitivity_tier == "sensitive":
-        raise PermissionError("browser-chat is not allowed for sensitive workloads")
+        return RoutePolicyDecision(False, "browser-chat is not allowed for sensitive workloads", access_method_id, sensitivity_tier)
+    return RoutePolicyDecision(True, "route is allowed for the requested sensitivity tier", access_method_id, sensitivity_tier)
+
+
+def enforce_route_sensitivity(access_method_id: str, sensitivity_tier: str | None) -> None:
+    """Reject routes that cannot safely carry sensitive workload content."""
+    decision = route_policy_decision(access_method_id, sensitivity_tier)
+    if not decision.allowed:
+        raise PermissionError(decision.reason)
 
 
 def resolve_policies(configuration: dict[str, Any], application_defaults: dict[str, Any] | None = None,
