@@ -57,10 +57,15 @@ def command_for(provider: str, prompt: str, *, writable: bool = False,
             arguments.extend(["--resume" if resume else "--session-id", session_id])
         arguments.append(prompt)
         return tuple(arguments)
-    if writable:
-        raise ValueError(f"writable mode is not implemented for {provider}")
     if provider == "gemini":
-        return ("-p", prompt)
+        arguments = ["-p", prompt]
+        if writable:
+            arguments.extend(["--approval-mode", "yolo"])
+        return tuple(arguments)
+    if writable:
+        if provider == "opencode":
+            return ("run", "--auto", prompt)
+        raise ValueError(f"writable mode is not implemented for {provider}")
     if provider == "agy":
         return ("--output-format", "text", "--sandbox", "--print", prompt)
     if provider == "opencode":
