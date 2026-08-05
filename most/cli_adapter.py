@@ -83,6 +83,10 @@ class CLIAdapter:
               environment: dict[str, str] | None = None) -> CLIExecution:
         if not working_directory.is_dir():
             raise ValueError("CLI working directory must exist")
+        child_environment = dict(environment) if environment is not None else os.environ.copy()
+        # Some provider CLIs use PWD rather than getcwd() when resolving their
+        # project/workspace. Keep it aligned with subprocess cwd.
+        child_environment["PWD"] = str(working_directory)
         kwargs: dict[str, object] = {
             "cwd": working_directory,
             "env": environment,
@@ -93,7 +97,8 @@ class CLIAdapter:
         if os.name != "nt":
             kwargs["start_new_session"] = True
             kwargs["preexec_fn"] = _set_parent_death_signal
-        search_path = environment.get("PATH") if environment else None
+        kwargs["env"] = child_environment
+        search_path = child_environment.get("PATH")
         resolved_executable = shutil.which(executable, path=search_path) or executable
         process = subprocess.Popen([resolved_executable, *arguments], **kwargs)  # type: ignore[arg-type]
         job_handle = _create_windows_job(process) if os.name == "nt" else None

@@ -60,11 +60,11 @@ def command_for(provider: str, prompt: str, *, writable: bool = False,
     if provider == "gemini":
         arguments = ["-p", prompt]
         if writable:
-            arguments.extend(["--approval-mode", "yolo"])
+            arguments.append("--yolo")
         return tuple(arguments)
     if writable:
         if provider == "opencode":
-            return ("run", "--auto", prompt)
+            return ("run", "--auto", "--agent", "build", prompt)
         raise ValueError(f"writable mode is not implemented for {provider}")
     if provider == "agy":
         return ("--output-format", "text", "--sandbox", "--print", prompt)
@@ -397,6 +397,8 @@ def _enforce_einfra_model_sensitivity(model: str | None, sensitivity_tier: str, 
 
 
 def _transcript_prompt(messages: list[dict[str, object]]) -> str:
+    if len(messages) == 1 and messages[0].get("role") == "user":
+        return str(messages[0].get("content", ""))
     lines = ["You are continuing a terminal conversation. Reply to the final user message."]
     for message in messages:
         lines.append(f"{message.get('role', 'user')}: {message.get('content', '')}")
