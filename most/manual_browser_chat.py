@@ -7,6 +7,7 @@ from argparse import Namespace
 
 from .journal import JournalService
 from .models import AIConfiguration, AIRequest, IntermediateResult
+from .policies import enforce_route_sensitivity
 from .services import ConfigurationService, SessionService
 
 URLS = {
@@ -19,6 +20,7 @@ URLS = {
 
 def run_manual_browser_chat(args: Namespace) -> int:
     """Open a normal browser and journal user-mediated prompt/response exchanges."""
+    enforce_route_sensitivity("browser", getattr(args, "sensitivity_tier", "normal"))
     webbrowser.open(URLS[args.provider])
     sessions = SessionService(args.data_root)
     journal = JournalService(args.data_root)
@@ -48,6 +50,7 @@ def run_manual_browser_chat(args: Namespace) -> int:
             interaction_id=interaction.id,
             configuration_id=configuration.id,
             messages=list(messages),
+            execution_options={"sensitivity_tier": getattr(args, "sensitivity_tier", "normal")},
         )
         journal.record_request(session.id, request)
         content = _read_response()

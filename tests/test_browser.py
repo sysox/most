@@ -115,3 +115,14 @@ def test_direct_cerit_chat_sensitive_guard_uses_catalog():
 def test_browser_chat_supports_cerit_webui():
     args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
     assert args.provider == "cerit"
+
+
+def test_manual_browser_chat_enforces_sensitive_route_before_opening_browser(tmp_path: Path, monkeypatch):
+    from most.manual_browser_chat import run_manual_browser_chat
+
+    monkeypatch.setattr("most.manual_browser_chat.webbrowser.open", lambda *_: pytest.fail("browser opened"))
+    args = build_parser().parse_args([
+        "--data-root", str(tmp_path), "browser-chat", "gemini", "hello", "--manual", "--sensitivity-tier", "sensitive",
+    ])
+    with pytest.raises(PermissionError, match="browser-chat is not allowed for sensitive workloads"):
+        run_manual_browser_chat(args)
