@@ -348,9 +348,13 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
 
 ### OIDC / OAuth2 device-flow for e-INFRA credentials
 
-**Status: confirmed OIDC provider exists, device-flow grant type NOT
-confirmed. Research spike required before implementation — do not assume
-device-flow works, verify first.**
+**Status: research complete; implementation deferred.** The e-INFRA AI API
+documentation explicitly requires an API key generated in Open WebUI and
+documents that key as the bearer credential. It does not document an OIDC
+device authorization endpoint or an OIDC access token accepted by the AI API.
+The available e-INFRA OIDC integration documentation for other services uses
+pre-registered service providers and authorization-code flow, which is not a
+drop-in CLI device flow.
 
 Confirmed facts (from aai.cesnet.cz / e-INFRA AAI docs):
 - e-INFRA CZ AAI is a full OIDC provider, login endpoint
@@ -364,32 +368,22 @@ Confirmed facts (from aai.cesnet.cz / e-INFRA AAI docs):
 - Hands-on OIDC connection walkthrough (PDF):
   `https://aai.cesnet.cz/_media/en/index/documentation/sp/proxy/oidc_handson.pdf`
 
-What's NOT confirmed and needs the research spike:
-- [ ] Whether the `urn:ietf:params:oauth:grant-type:device_code` grant
-  (RFC 8628, "device authorization flow") is enabled for this OIDC
-  provider — being a standard OIDC provider does not guarantee every
-  grant type is turned on. Check the provider's `.well-known/openid-configuration`
-  (likely at `https://login.e-infra.cz/.well-known/openid-configuration`)
-  for `grant_types_supported` and `device_authorization_endpoint`.
-- [ ] Whether registering `most` as a service provider via spadmin.e-infra.cz
-  is realistic for a personal CLI tool (this portal reads as intended for
-  institutional services, not individual developer tools — may require
-  contacting CERIT-SC/e-INFRA support, same contact used elsewhere in
-  these docs: k8s@cerit-sc.cz).
-- [ ] Whether the resulting OIDC access token is even usable as a bearer
-  credential against `llm.ai.e-infra.cz` — the AIaaS API key (from
-  chat.ai.e-infra.cz Settings > API keys) may be a *separate* credential
-  system layered on top of AAI login, not directly interchangeable with
-  a raw OIDC token. This is the biggest open question — if true, device-flow
-  would only replace the *browser login step*, not eliminate the manual
-  API-key-copy step, which would reduce the payoff significantly.
+Research result:
+- [x] The current AI API documentation does not document the
+  `urn:ietf:params:oauth:grant-type:device_code` grant or a device
+  authorization endpoint.
+- [x] The documented OIDC integration pattern requires service registration
+  in SP Admin, a callback URL, and authorization-code flow; a local MOST CLI
+  client contract is not provided.
+- [x] The AI API documentation requires the Open WebUI API key; no OIDC-token
+  exchange endpoint is documented.
+- [x] Decision: keep `most credentials set einfra` as the supported flow and
+  do not add an unverified OIDC login command. Revisit only when e-INFRA
+  documents a device-flow or token-exchange contract for the AI API.
 
-- [ ] After the spike: if device_authorization_endpoint exists AND the
-  resulting token works against the AIaaS API, implement
-  `most credentials set einfra` as a device-flow login.
-- [ ] If not: keep manual key entry, close this item, don't block on it.
-  The manual copy-paste is annoying but not broken — deprioritize rather
-  than force a solution that doesn't fit the actual credential model.
+Sources checked: [e-INFRA OpenAI API](https://docs.cerit.io/en/docs/ai-as-a-service/ai-api),
+[Chat AI API-key instructions](https://docs.cerit.io/en/docs/ai-as-a-service/chat-ai),
+and [e-INFRA OIDC integration example](https://docs.cerit.io/en/docs/operators/minio).
 
 ### LiteLLM refactor (do opportunistically, not urgent)
 - [ ] When next touching `ai-chat`'s provider client code, consider

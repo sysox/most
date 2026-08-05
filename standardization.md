@@ -41,10 +41,14 @@ Change: e-INFRA CZ AAI already runs on Shibboleth/OIDC. `most credentials
 set einfra` could trigger a device-flow login instead of requiring a
 manual key copy.
 Payoff: fewer manual steps, key never sits in shell history or clipboard.
-Status: deferred. The current e-INFRA API documentation requires a separate
-API key generated in Open WebUI and does not document an OIDC token as an API
-credential. Keep the secure keyring flow until e-INFRA exposes a supported
-device flow that issues an API-compatible credential.
+Status: deferred after a completed research spike. The current e-INFRA API
+documentation requires a separate API key generated in Open WebUI and does
+not document an OIDC device-flow endpoint, token exchange, or an OIDC token
+as an API credential. Keep the secure keyring flow until e-INFRA exposes a
+supported device flow that issues an API-compatible credential. The OIDC
+integration documented for other e-INFRA services requires pre-registration
+and authorization-code callbacks, so it is not a safe assumption for MOST's
+local CLI.
 
 ### JSON Schema
 Replaces: no validation on `ai-catalog.yaml` / `task-profiles.yaml`
