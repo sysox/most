@@ -75,7 +75,16 @@ class OpenAICompatibleAdapter:
         headers = {"content-type": "application/json"}
         if credential:
             headers["authorization"] = f"Bearer {credential}"
-        payload = {**request, "model": configuration["model_reference"]}
+        model = str(configuration["model_reference"])
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": request.get("messages", []),
+        }
+        generation_options = request.get("generation_options", {})
+        if isinstance(generation_options, dict):
+            payload.update(generation_options)
+        if configuration.get("provider_id") == "einfra":
+            payload = _apply_einfra_reasoning_mode(payload, model)
         return self.transport(options["base_url"].rstrip("/") + "/chat/completions", headers, payload)
 
     def stream(self, request: dict[str, Any], configuration: dict[str, Any], credential: str | None = None):
@@ -87,3 +96,23 @@ class OpenAICompatibleAdapter:
         for event in events:
             if isinstance(event, dict):
                 yield event
+
+
+def _apply_einfra_reasoning_mode(payload: dict[str, Any], model: str) -> dict[str, Any]:
+    """Translate the neutral MOST thinking option to e-INFRA template kwargs."""
+    options = payload.pop("thinking", None)
+    if options is None and model in {"thinker", "deepseek-thinking"}:
+        options = True
+    if options is None:
+        return payload
+    if not isinstance(options, bool):
+        raise TypeError("thinking option must be boolean")
+    kwargs = dict(payload.get("chat_template_kwargs", {}))
+    if model.startswith("glm"):
+        kwargs["enable_thinking"] = options
+    elif model.startswith("deepseek") or model in {"thinker", "deepseek-thinking"}:
+        kwargs["thinking"] = options
+    else:
+        raise ValueError(f"thinking mode is not supported for e-INFRA model: {model}")
+    payload["chat_template_kwargs"] = kwargs
+    return payload

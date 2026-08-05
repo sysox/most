@@ -44,6 +44,10 @@ def build_parser() -> argparse.ArgumentParser:
     cerit_chat.add_argument("--model", default="mini", help="CERIT model name or maintained alias")
     cerit_chat.add_argument("--base-url", default="https://llm.ai.e-infra.cz/v1")
     cerit_chat.add_argument("--api-key-env", default="CERIT_API_KEY", help="environment variable containing the CERIT API key")
+    cerit_chat.add_argument("--thinking", dest="thinking", action="store_true", default=None,
+                            help="enable model reasoning when supported")
+    cerit_chat.add_argument("--no-thinking", dest="thinking", action="store_false",
+                            help="disable model reasoning when supported")
     cerit_chat.add_argument("--title", default="CERIT AI chat")
     gpt_chat = subparsers.add_parser("gpt-chat", help="communicate with OpenAI through the official Responses API")
     gpt_chat.add_argument("prompt", nargs="?")
@@ -81,6 +85,10 @@ def build_parser() -> argparse.ArgumentParser:
     unified.add_argument("--title", default="Unified AI chat")
     unified.add_argument("--no-refresh", action="store_true")
     unified.add_argument("--max-age-hours", type=float, default=24.0)
+    unified.add_argument("--thinking", dest="thinking", action="store_true", default=None,
+                         help="enable model reasoning when supported")
+    unified.add_argument("--no-thinking", dest="thinking", action="store_false",
+                         help="disable model reasoning when supported")
     embed = subparsers.add_parser("ai-embed", help="create an embedding vector from text")
     _add_capability_task_args(embed, "embedding", output_modality="embedding")
     embed.add_argument("--input", type=Path, required=True, help="UTF-8 text file to embed")
@@ -331,7 +339,8 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
         if option["provider_id"] == "einfra":
             return run_cerit_chat(argparse.Namespace(
                 data_root=args.data_root, prompt=args.prompt, model=args.model,
-                api_key_env=option["credential_env"] or "CERIT_API_KEY", base_url="https://llm.ai.e-infra.cz/v1", title=args.title,
+                api_key_env=option["credential_env"] or "CERIT_API_KEY", base_url="https://llm.ai.e-infra.cz/v1",
+                title=args.title, thinking=getattr(args, "thinking", None),
             ))
         return run_chat(argparse.Namespace(
             data_root=args.data_root, prompt=args.prompt, model=args.model,
@@ -617,7 +626,7 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
     sessions = SessionService(root)
     session = sessions.create(args.title)
     configuration = AIConfiguration(
-        name=f"CERIT: {args.model}", provider_id="cerit", access_method_id="openai-compatible",
+        name=f"CERIT: {args.model}", provider_id="einfra", access_method_id="openai-compatible",
         model_reference=args.model, location="remote-public", network="public-internet",
         adapter_options={"base_url": args.base_url},
     )
@@ -640,7 +649,12 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
             break
         messages.append({"role": "user", "content": prompt})
         interaction = sessions.append_interaction(session, configuration.id, len(messages))
-        request = AIRequest(session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id, messages=list(messages))
+        thinking = getattr(args, "thinking", None)
+        generation_options = {} if thinking is None else {"thinking": thinking}
+        request = AIRequest(
+            session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
+            messages=list(messages), generation_options=generation_options,
+        )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize_response(response)
