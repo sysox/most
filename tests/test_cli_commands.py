@@ -96,6 +96,13 @@ def test_cli_chat_sensitive_einfra_guard_uses_catalog():
         _enforce_einfra_model_sensitivity("unknown-model", "sensitive", Path("ai-catalog.yaml"))
 
 
+def test_cli_parser_supports_explicit_no_mcp():
+    from most.cli import build_parser
+
+    args = build_parser().parse_args(["cli-chat", "claude", "--no-mcp"])
+    assert args.no_mcp is True
+
+
 def test_unified_chat_model_selection_errors_are_clean(monkeypatch, tmp_path: Path):
     from most import cli
 

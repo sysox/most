@@ -187,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--stage-index", type=int)
     cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
                           help="attach an e-INFRA MCP server to Claude (repeatable)")
+    cli_chat.add_argument("--no-mcp", action="store_true",
+                          help="disable automatic and explicit MCP server attachment")
     return parser
 
 

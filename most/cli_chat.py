@@ -212,6 +212,9 @@ def run_cli_chat(args: Namespace) -> int:
     environment: dict[str, str] = {}
     credential_env_var = None
     mcp_servers = list(getattr(args, "mcp_server", []) or [])
+    no_mcp = bool(getattr(args, "no_mcp", False))
+    if no_mcp and mcp_servers:
+        raise SystemExit("--no-mcp cannot be combined with --mcp-server")
     if credential_provider:
         if args.provider not in {"codex", "claude", "opencode"}:
             raise SystemExit("--credential-provider einfra currently supports only codex and claude")
@@ -219,7 +222,7 @@ def run_cli_chat(args: Namespace) -> int:
         credential = resolve_provider_credential(credential_provider)
         if not credential:
             raise SystemExit("missing einfra credential; run `most credentials set einfra` first")
-        if args.provider == "claude":
+        if args.provider == "claude" and not no_mcp:
             mcp_servers = list(dict.fromkeys(["ddg_search", *mcp_servers]))
     elif mcp_servers:
         raise SystemExit("--mcp-server requires --credential-provider einfra")
