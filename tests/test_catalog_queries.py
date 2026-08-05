@@ -4,8 +4,8 @@ from pathlib import Path
 import yaml
 
 from most.catalog_queries import list_aliases, list_mcp_servers
-from most.cli_chat import MCP_SERVERS
 from most.cli import main
+from most.cli_chat import MCP_SERVERS
 
 
 def test_list_aliases_reads_curated_catalog_without_credentials():
