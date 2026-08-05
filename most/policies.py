@@ -30,6 +30,14 @@ class PolicyOverrides:
     explicit_exposure_override: bool = False
 
 
+def enforce_route_sensitivity(access_method_id: str, sensitivity_tier: str | None) -> None:
+    """Reject routes that cannot safely carry sensitive workload content."""
+    if sensitivity_tier not in {None, "normal", "sensitive"}:
+        raise ValueError(f"unsupported sensitivity tier: {sensitivity_tier}")
+    if access_method_id == "browser" and sensitivity_tier == "sensitive":
+        raise PermissionError("browser-chat is not allowed for sensitive workloads")
+
+
 def resolve_policies(configuration: dict[str, Any], application_defaults: dict[str, Any] | None = None,
                     workspace_defaults: dict[str, Any] | None = None,
                     overrides: PolicyOverrides | None = None) -> PolicyResolution:

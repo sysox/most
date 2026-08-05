@@ -325,6 +325,13 @@ This mode does not inspect cookies, automate login, bypass CAPTCHA, or evade
 provider security controls. It records the manually mediated exchange in the
 MOST journal.
 
+Browser routes are not permitted for sensitive workloads. Mark a session
+explicitly when needed; MOST will fail before opening or sending content:
+
+```bash
+uv run python -m most browser-chat gemini --sensitivity-tier sensitive
+```
+
 Use separate named profiles when you have more than one account, for example
 personal Gemini and Gemini for Education. Each profile keeps its own login:
 

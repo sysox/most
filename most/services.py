@@ -33,7 +33,12 @@ from .models import (
 )
 from .network import NetworkInspector
 from .persistence import PersistenceCoordinator
-from .policies import PolicyOverrides, evaluate_exposure, resolve_policies
+from .policies import (
+    PolicyOverrides,
+    enforce_route_sensitivity,
+    evaluate_exposure,
+    resolve_policies,
+)
 from .schemas import require_valid_ai_configuration
 from .workspace_context import WorkspaceContextSelector
 
@@ -254,6 +259,10 @@ class ExecutionManager:
             raise ValueError("configuration is disabled")
         if request.configuration_id != configuration.id:
             raise ValueError("request/configuration mismatch")
+        enforce_route_sensitivity(
+            configuration.access_method_id,
+            request.execution_options.get("sensitivity_tier"),
+        )
         configuration_payload = record_payload(configuration, record_type="AI_CONFIGURATION")
         request_overrides = request.execution_options
         overrides = PolicyOverrides(

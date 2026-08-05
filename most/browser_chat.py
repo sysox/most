@@ -127,6 +127,7 @@ def run_browser_chat(args: Namespace) -> int:
                 interaction_id=interaction.id,
                 configuration_id=configuration.id,
                 messages=list(messages),
+                execution_options={"sensitivity_tier": args.sensitivity_tier},
             )
             execution = manager.prepare(request, configuration, session)
             execution, response = manager.execute(execution, request, configuration, adapter)

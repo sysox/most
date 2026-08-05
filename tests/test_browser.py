@@ -45,6 +45,11 @@ def test_browser_chat_parser_supports_named_login_profile():
     assert args.profile == "gemini-edu"
 
 
+def test_browser_chat_parser_supports_sensitivity_tier():
+    args = build_parser().parse_args(["browser-chat", "cerit", "--sensitivity-tier", "sensitive"])
+    assert args.sensitivity_tier == "sensitive"
+
+
 def test_browser_chat_supports_cerit_webui():
     args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
     assert args.provider == "cerit"
