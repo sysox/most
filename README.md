@@ -467,3 +467,6 @@ the same execution gate. Browser conversations remain opt-in and explicit;
 MOST does not passively capture activity from provider applications or websites.
 Benchmark-based model recommendations and full submodule/LFS/path-limit
 mutation fallbacks remain future work.
+
+The Tandem MCP operation identity contract is documented in
+`MCP_OPERATION_ID.md`.
