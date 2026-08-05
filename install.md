@@ -1,5 +1,8 @@
 # MOST installation and provider setup
 
+For the provider inventory, official links, model aliases, MCP servers and
+pricing guidance, see the [AI provider guide](docs/ai-provider-guide.md).
+
 This guide installs MOST and the providers currently supported by this
 workstation. Run all MOST commands from the repository directory. Each
 provider is optional; install only the routes you intend to use.
