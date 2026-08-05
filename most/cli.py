@@ -738,7 +738,7 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
         from .chat_output import print_chat_result
-        print_chat_result(args, content, session.id)
+        print_chat_result(args, content, session.id, normalized.get("usage"))
         if args.prompt is not None:
             break
         prompt = None
@@ -807,7 +807,7 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
         from .chat_output import print_chat_result
-        print_chat_result(args, content, session.id)
+        print_chat_result(args, content, session.id, normalized.get("usage"))
         if args.prompt is not None:
             break
         prompt = None
@@ -882,7 +882,7 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
         from .chat_output import print_chat_result
-        print_chat_result(args, content, session.id)
+        print_chat_result(args, content, session.id, normalized.get("usage"))
         if args.prompt is not None:
             break
         prompt = None
