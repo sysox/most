@@ -150,6 +150,9 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--allow-unknown-connectivity", action="store_true", help="approve opaque provider CLI network routing")
     cli_chat.add_argument("--writable", action="store_true",
                           help="opt into Codex workspace-write mode; default is read-only")
+    cli_chat.add_argument("--credential-provider", choices=("einfra",),
+                          help="route CLI authentication through a stored provider credential")
+    cli_chat.add_argument("--model", help="provider model alias when using --credential-provider")
     return parser
 
 

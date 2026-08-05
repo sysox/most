@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .adapters import Connectivity, Observability
 from .cli_adapter import CLIAdapter
+from .credentials import resolve_provider_credential
 from .models import AIConfiguration, AIRequest, IntermediateResult
 from .services import ConfigurationService, ExecutionManager, SessionService
 
@@ -34,6 +35,24 @@ def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[
     raise ValueError(f"unsupported CLI provider: {provider}")
 
 
+def credential_environment(cli: str, provider: str, model: str | None) -> tuple[dict[str, str], str]:
+    """Return non-secret child environment settings for a provider-routed CLI."""
+    if provider != "einfra":
+        raise ValueError(f"unsupported CLI credential provider: {provider}")
+    if cli == "claude":
+        environment = {
+            "ANTHROPIC_BASE_URL": "https://llm.ai.e-infra.cz/",
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        }
+        if model:
+            environment["ANTHROPIC_MODEL"] = model
+        return environment, "ANTHROPIC_AUTH_TOKEN"
+    if cli == "codex":
+        environment = {"OPENAI_BASE_URL": "https://llm.ai.e-infra.cz"}
+        return environment, "OPENAI_API_KEY"
+    raise ValueError(f"e-INFRA credentials are not implemented for {cli}")
+
+
 class ProviderCLIAdapter:
     adapter_type = "provider-cli"
 
@@ -56,13 +75,12 @@ class ProviderCLIAdapter:
         messages = request.get("messages", [])
         prompt = _transcript_prompt(messages)
         arguments = list(command_for(self.provider, prompt, writable=self.writable))
-        execution = self.cli.start(
-            CLI_EXECUTABLES[self.provider],
-            arguments,
-            self.working_directory,
-            environment=None,
-        )
-        stdout, stderr, returncode = self.cli.collect(execution)
+        runtime_configuration = {
+            **configuration,
+            "adapter_options": {**configuration.get("adapter_options", {}), "arguments": arguments},
+        }
+        result = self.cli.execute(request, runtime_configuration, credential)
+        stdout, stderr, returncode = result["stdout"], result["stderr"], result["returncode"]
         if returncode != 0:
             raise RuntimeError(f"{self.provider} CLI exited with status {returncode}: {stderr or stdout}")
         content = stdout.strip()
@@ -74,6 +92,18 @@ class ProviderCLIAdapter:
 
 def run_cli_chat(args: Namespace) -> int:
     writable = bool(getattr(args, "writable", False))
+    credential_provider = getattr(args, "credential_provider", None)
+    model = getattr(args, "model", None)
+    credential = None
+    environment: dict[str, str] = {}
+    credential_env_var = None
+    if credential_provider:
+        if args.provider not in {"codex", "claude"}:
+            raise SystemExit("--credential-provider einfra currently supports only codex and claude")
+        environment, credential_env_var = credential_environment(args.provider, credential_provider, model)
+        credential = resolve_provider_credential(credential_provider)
+        if not credential:
+            raise SystemExit("missing einfra credential; run `most credentials set einfra` first")
     sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
     sandbox.mkdir(parents=True, exist_ok=True)
     sessions = SessionService(args.data_root)
@@ -88,6 +118,8 @@ def run_cli_chat(args: Namespace) -> int:
             "executable": CLI_EXECUTABLES[args.provider],
             "working_directory": str(sandbox),
             "arguments": list(command_for(args.provider, "<prompt>", writable=writable)),
+            "environment": environment,
+            "credential_env_var": credential_env_var,
         },
     )
     ConfigurationService(args.data_root).save(configuration)
@@ -115,6 +147,7 @@ def run_cli_chat(args: Namespace) -> int:
             request,
             configuration,
             adapter,
+            credential=credential,
             confirmation=args.allow_unknown_connectivity,
         )
         content = str(response["content"])

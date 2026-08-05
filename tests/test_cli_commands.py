@@ -55,7 +55,7 @@ def test_cli_chat_persists_local_session_and_result(tmp_path: Path, capsys):
 
 
 def test_provider_cli_command_mapping():
-    from most.cli_chat import command_for
+    from most.cli_chat import command_for, credential_environment
 
     assert command_for("codex", "hello")[:5] == ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check")
     assert command_for("claude", "hello") == ("-p", "hello")
@@ -64,6 +64,10 @@ def test_provider_cli_command_mapping():
     assert command_for("codex", "hello", writable=True) == ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "hello")
     with pytest.raises(ValueError, match="writable mode"):
         command_for("claude", "hello", writable=True)
+    environment, variable = credential_environment("claude", "einfra", "agentic")
+    assert environment["ANTHROPIC_BASE_URL"] == "https://llm.ai.e-infra.cz/"
+    assert environment["ANTHROPIC_MODEL"] == "agentic"
+    assert variable == "ANTHROPIC_AUTH_TOKEN"
 
 
 def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):

@@ -61,10 +61,16 @@ class CLIAdapter:
         if credential:
             # The credential may only be passed through an explicitly named
             # environment variable; it is never written to observed arguments.
-            environment = dict(options.get("environment", {}))
-            environment["MOST_CREDENTIAL"] = credential
+            environment = os.environ.copy()
+            environment.update({str(key): str(value) for key, value in options.get("environment", {}).items()})
+            environment[str(options.get("credential_env_var", "MOST_CREDENTIAL"))] = credential
         else:
-            environment = options.get("environment")
+            configured_environment = options.get("environment", {})
+            if configured_environment:
+                environment = os.environ.copy()
+                environment.update({str(key): str(value) for key, value in configured_environment.items()})
+            else:
+                environment = None
         execution = self.start(str(options["executable"]), arguments, Path(str(options["working_directory"])), environment)
         stdout, stderr, returncode = self.collect(execution, (credential,) if credential else ())
         return {"stdout": stdout, "stderr": stderr, "returncode": returncode, "command": execution.redacted_command}
