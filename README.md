@@ -336,6 +336,18 @@ explicitly when needed; MOST will fail before opening or sending content:
 uv run python -m most browser-chat gemini --sensitivity-tier sensitive
 ```
 
+API and multimodal routes can also select a workload tier. For sensitive
+e-INFRA work, the selected catalog model must explicitly be marked
+`is_external_passthrough: false`; unknown or externally routed models are
+rejected before the provider request:
+
+```bash
+uv run python -m most ai-chat --provider einfra --model mini \
+  --sensitivity-tier sensitive "Summarize the local report"
+uv run python -m most ai-embed --provider einfra --model qwen3-embedding-4b \
+  --sensitivity-tier sensitive --input report.txt
+```
+
 Use separate named profiles when you have more than one account, for example
 personal Gemini and Gemini for Education. Each profile keeps its own login:
 

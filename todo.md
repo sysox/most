@@ -321,6 +321,9 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   signal is available (e.g. cross-check against the documented "internal
   models" list) to help set this field, but manual confirmation is
   acceptable for now — don't over-engineer detection.
+- [x] Enforce the passthrough flag during model selection: sensitive API and
+  multimodal routes reject e-INFRA models unless the catalog explicitly marks
+  them as on-premise.
 
 ---
 
