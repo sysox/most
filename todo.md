@@ -67,6 +67,27 @@ sensitive work (thesis-adjacent, per e-INFRA's own warning) picks aliases.
 `qwen3-embedding-4b` (2560-dim, 40960 ctx, multilingual), `qwen3-reranker-4b`,
 `nomic-embed-text-v1.5`/`v2-moe` (768-dim, English), `mxbai-embed-large`,
 `multilingual-e5-large-instruct`. Same endpoint, `/v1` embeddings path.
+- [ ] Add these as catalog entries under the `einfra` provider with
+  `capability: embedding` — currently only listed as facts, no actual
+  catalog entry exists for them yet.
+
+### Gap: modality commands are currently Gemini-only, not provider-generic
+Per most's own README, the existing `ai-embed` / `ai-image` /
+`ai-image-analyze` / `ai-speech` / `ai-transcribe` commands are invoked
+with `--model models/gemini-*` and described as "these commands
+currently target the Google Gemini API" — i.e. **these commands are not
+provider-agnostic today**, unlike `ai-chat`. This blocks using
+e-INFRA's embedding models and Whisper (`whisper-large-v3`, API-only)
+through them.
+- [ ] Generalize `ai-embed` and `ai-transcribe` (highest priority — these
+  unlock e-INFRA embeddings and Whisper) to accept `--provider einfra`
+  the same way `ai-chat` already does, instead of being hardcoded to the
+  Gemini client.
+- [ ] `ai-image` / `ai-image-analyze` generalization is lower priority —
+  e-INFRA's own image-generation support via API is unconfirmed (WebUI
+  exposes an "Image" toggle on chat models, unclear if this maps to a
+  standalone API-callable image-generation endpoint). Verify before
+  implementing, don't assume it exists.
 
 ---
 
@@ -138,6 +159,13 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
 - [ ] Document/enforce: never export these env vars manually in a shell
   outside most — breaks journaling guarantee (see conversation decision:
   "always `most cli-chat`, never bare `claude`").
+- [ ] Security implementation detail: pass the API key to the child
+  process via `subprocess`'s `env=` parameter directly, not by writing a
+  literal `export ANTHROPIC_AUTH_TOKEN=sk-...` line to a shell — the
+  latter exposes the key in that process's environment as visible via
+  `ps eww`/`/proc/<pid>/environ` to other users on a shared machine.
+  Relevant for the shared ThinkPad/Pi setups, not just the personal
+  MacBook.
 
 ---
 
@@ -164,9 +192,15 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
 ```
 
 ### Implementation tasks
+- [ ] Verify first (don't assume): does `codex` or `opencode` support MCP
+  server registration at all, and if so what's the equivalent of
+  `claude mcp add-json`? Not confirmed in any doc read so far — only
+  Claude Code's MCP attach command is documented. If codex/opencode lack
+  MCP support, the mechanism below is Claude-Code-only for now, and that
+  scope limit should be explicit rather than assumed away.
 - [ ] `most` implements the *mechanism*: given a list of MCP server names,
   run the `claude mcp add-json` calls (or equivalent registration for
-  codex/opencode if they support MCP) before starting a cli-chat session
+  codex/opencode if confirmed above) before starting a cli-chat session
   routed through einfra.
 - [ ] Auto-include `ddg_search` by default whenever
   `provider=einfra AND cli=claude`, since native web tools are silently
