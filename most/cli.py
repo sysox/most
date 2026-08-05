@@ -48,6 +48,9 @@ def build_parser() -> argparse.ArgumentParser:
                             help="enable model reasoning when supported")
     cerit_chat.add_argument("--no-thinking", dest="thinking", action="store_false",
                             help="disable model reasoning when supported")
+    cerit_chat.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
+                            help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
+    cerit_chat.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     cerit_chat.add_argument("--title", default="CERIT AI chat")
     gpt_chat = subparsers.add_parser("gpt-chat", help="communicate with OpenAI through the official Responses API")
     gpt_chat.add_argument("prompt", nargs="?")
@@ -632,6 +635,7 @@ def run_chat(args: argparse.Namespace, *, registry=None) -> int:
 def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
     """Run a journaled CERIT-SC chat using an environment-provided API key."""
     from .credentials import resolve_provider_credential
+    _enforce_einfra_model_sensitivity(args.model, getattr(args, "sensitivity_tier", "normal"), args.catalog)
     credential = resolve_provider_credential("einfra", args.api_key_env)
     if not credential:
         raise SystemExit(f"missing CERIT API key; set ${args.api_key_env} without putting it in configuration files")
@@ -685,6 +689,24 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         prompt = None
     print(f"session: {session.id}")
     return 0
+
+
+def _enforce_einfra_model_sensitivity(model: str, sensitivity_tier: str, catalog: Path) -> None:
+    if sensitivity_tier == "normal":
+        return
+    if sensitivity_tier != "sensitive":
+        raise SystemExit(f"unsupported sensitivity tier: {sensitivity_tier}")
+    from .model_options import load_model_options
+
+    matches = [
+        option for option in load_model_options(catalog, Path(".most-no-discovery.yaml"))
+        if option["provider_id"] == "einfra" and option["model_id"] == model
+    ]
+    if not any(option.get("is_external_passthrough") is False for option in matches):
+        raise SystemExit(
+            f"cannot use einfra/{model} for sensitive workloads; "
+            "catalog must explicitly mark the model as on-premise"
+        )
 
 
 def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:

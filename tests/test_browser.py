@@ -55,6 +55,20 @@ def test_ai_chat_parser_supports_sensitivity_tier():
     assert args.sensitivity_tier == "sensitive"
 
 
+def test_cerit_chat_parser_supports_sensitivity_tier():
+    args = build_parser().parse_args(["cerit-chat", "--model", "mini", "--sensitivity-tier", "sensitive"])
+    assert args.sensitivity_tier == "sensitive"
+
+
+def test_direct_cerit_chat_sensitive_guard_uses_catalog():
+    from pathlib import Path
+
+    from most.cli import _enforce_einfra_model_sensitivity
+
+    catalog = Path(__file__).parents[1] / "ai-catalog.yaml"
+    _enforce_einfra_model_sensitivity("mini", "sensitive", catalog)
+
+
 def test_browser_chat_supports_cerit_webui():
     args = build_parser().parse_args(["browser-chat", "cerit", "hello", "--manual"])
     assert args.provider == "cerit"
