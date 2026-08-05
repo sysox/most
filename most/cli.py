@@ -107,7 +107,6 @@ def build_parser() -> argparse.ArgumentParser:
     image_analysis.add_argument("prompt", nargs="?", default="Describe this image.")
     transcription = subparsers.add_parser("ai-transcribe", help="transcribe audio to text")
     _add_capability_task_args(transcription, "transcription", input_modality="audio", output_modality="text")
-    transcription.set_defaults(require_credential=False)
     transcription.add_argument("--input", type=Path, required=True, help="audio file to transcribe")
     catalog_audit.add_argument("--update", action="store_true", help="write confirmed availability statuses to the catalog")
     catalog_refresh = subparsers.add_parser("catalog-refresh", help="refresh dynamic model inventory and route status")

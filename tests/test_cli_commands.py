@@ -136,3 +136,13 @@ def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Pat
     metadata = list((tmp_path / "executions").glob("*/metadata.yaml"))
     assert len(metadata) == 5
     assert all("resolved_connectivity" in path.read_text(encoding="utf-8") for path in metadata)
+
+
+def test_transcription_requires_credentials_for_remote_providers():
+    from most.cli import build_parser
+
+    args = build_parser().parse_args([
+        "ai-transcribe", "--provider", "einfra", "--model", "whisper-large-v3", "--input", "audio.wav",
+    ])
+
+    assert getattr(args, "require_credential", True) is True
