@@ -70,7 +70,9 @@ Only the narrower items below remain open.
   `chat_template_kwargs: {"enable_thinking": false}`.
 - Implement as a provider-specific request-body transform keyed off model
   family prefix (`deepseek-*` vs `glm-*`), not a global flag.
-- Status: unconfirmed whether already implemented — verify before treating as a gap.
+- [x] Provider-specific reasoning transform is implemented in the e-INFRA
+  OpenAI-compatible payload builder, including alias defaults and explicit
+  `--thinking` / `--no-thinking` controls.
 
 ### Embedding models available (for future RAG work, not blocking)
 `qwen3-embedding-4b` (2560-dim, 40960 ctx, multilingual), `qwen3-reranker-4b`,
@@ -80,10 +82,11 @@ Only the narrower items below remain open.
   `capability: embedding` — currently only listed as facts, no confirmed
   catalog entry exists for them yet.
 
-### Modality command generalization — corrected status
-Per current README: `ai-embed`, `ai-image`, `ai-image-analyze`, and
-`ai-speech` are explicitly stated to "currently target the Google Gemini
-API" — confirmed still Gemini-only, real gap.
+### Modality command generalization — current status
+The capability commands share catalog-based provider selection. Embedding,
+image analysis, and transcription use verified OpenAI-compatible routes where
+available; image generation and speech synthesis remain Gemini-only until an
+e-INFRA API contract is confirmed.
 
 **Correction: `ai-transcribe` is NOT Gemini-locked.** README shows
 `ai-transcribe --provider openai --model whisper-1` — it already accepts
@@ -412,25 +415,18 @@ and [e-INFRA OIDC integration example](https://docs.cerit.io/en/docs/operators/m
 
 ---
 
-## Suggested implementation order for Codex
+## Current status and next action
 
-1. **Section 2 sandbox audit** (claude/codex/agy write-access modes) —
-   do this first, it's a correctness check on an assumption everything
-   else in section 2 depends on, and it's cheap (reading + testing
-   existing behavior, not new code).
-2. Section 1 remaining items (alias/reasoning-mode confirmation, einfra
-   whisper catalog entry) — mostly verification + small catalog edits,
-   not the large integration originally scoped; most of section 1 is
-   already implemented.
-3. Section 2 config-generation (cli-chat env/config plumbing for einfra)
-   — the actual file-access deliverable, once sandbox audit confirms
-   which wrappers are meaningfully writable.
-4. Section 3 (ddg_search auto-attach, MCP mechanism) — confirmed fully
-   a gap, depends on 1+2 for the einfra+claude combination it targets.
-5. Section 4 (exposure-policy sensitive-tier rule, generalized to all
-   browser-chat providers) — independent, can parallelize with anything.
-6. Section 5 (journal fields) — small, unblocks tandem's first integration.
-7. Section 6 (JSON Schema) — independent, cheap, do anytime.
-8. Section 6 (OIDC device-flow) — needs research spike first, not pure implementation.
-9. Section 6 (LiteLLM) — opportunistic, no deadline.
-10. Section 7 — do not implement now.
+The planned implementation work is complete except for capabilities whose
+external API contract is not confirmed. The remaining deliberate decisions
+are:
+
+1. Keep `ai-image` / `ai-speech` on Gemini until e-INFRA documents a
+   standalone compatible API; the current code rejects unsupported routes.
+2. Keep the LiteLLM refactor deferred until a real provider-compatibility
+   problem justifies replacing MOST's injected transport boundary.
+3. Keep OIDC device-flow deferred; the research spike found no documented
+   AI API token exchange or device-flow contract.
+
+W3C PROV/OpenLineage, OpenTelemetry, and Qdrant/codebase indexing remain
+out of scope unless a concrete use case appears.
