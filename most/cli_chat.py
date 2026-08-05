@@ -18,6 +18,7 @@ CLI_EXECUTABLES = {
     "claude": "claude",
     "gemini": "gemini",
     "agy": "agy",
+    "opencode": "opencode",
 }
 
 MCP_SERVERS = {
@@ -45,6 +46,8 @@ def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[
         return ("-p", prompt)
     if provider == "agy":
         return ("--output-format", "text", "--sandbox", "--print", prompt)
+    if provider == "opencode":
+        return ("run", prompt)
     raise ValueError(f"unsupported CLI provider: {provider}")
 
 

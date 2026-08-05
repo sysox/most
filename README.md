@@ -348,6 +348,7 @@ observable command/output history:
 uv run python -m most --data-root ./application-data cli-chat codex --allow-unknown-connectivity
 uv run python -m most --data-root ./application-data cli-chat claude --allow-unknown-connectivity
 uv run python -m most --data-root ./application-data cli-chat agy --allow-unknown-connectivity
+uv run python -m most --data-root ./application-data cli-chat opencode --allow-unknown-connectivity
 ```
 
 For e-INFRA Claude sessions, MOST can attach MCP servers without modifying

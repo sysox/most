@@ -61,6 +61,7 @@ def test_provider_cli_command_mapping():
     assert command_for("claude", "hello") == ("-p", "hello")
     assert command_for("gemini", "hello") == ("-p", "hello")
     assert command_for("agy", "hello") == ("--output-format", "text", "--sandbox", "--print", "hello")
+    assert command_for("opencode", "hello") == ("run", "hello")
     assert command_for("codex", "hello", writable=True) == ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "hello")
     with pytest.raises(ValueError, match="writable mode"):
         command_for("claude", "hello", writable=True)
