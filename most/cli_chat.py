@@ -126,7 +126,10 @@ def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[
                 "url": MCP_SERVERS[name],
                 "enabled": True,
                 "oauth": False,
-                "headers": {"Authorization": "Bearer {env:MOST_MCP_AUTH}"},
+                "headers": {
+                    "Authorization": "Bearer {env:MOST_MCP_AUTH}",
+                    "X-Tandem-Operation-Id": "{env:MOST_TANDEM_OPERATION_ID}",
+                },
             }
             for name in dict.fromkeys(server_names)
         }
@@ -159,6 +162,11 @@ class ProviderCLIAdapter:
             **configuration,
             "adapter_options": {**configuration.get("adapter_options", {}), "arguments": arguments},
         }
+        operation_id = request.get("operation_id")
+        if operation_id:
+            environment = dict(runtime_configuration["adapter_options"].get("environment", {}))
+            environment["MOST_TANDEM_OPERATION_ID"] = str(operation_id)
+            runtime_configuration["adapter_options"]["environment"] = environment
         mcp_path = None
         mcp_servers = configuration.get("adapter_options", {}).get("mcp_servers", [])
         opencode_model = configuration.get("adapter_options", {}).get("opencode_model")

@@ -86,6 +86,7 @@ def test_provider_cli_command_mapping():
     config = opencode_config_payload("mini", ["ddg_search"])
     assert config["model"] == "einfra/mini"
     assert config["mcp"]["ddg_search"]["headers"]["Authorization"] == "Bearer {env:MOST_MCP_AUTH}"
+    assert config["mcp"]["ddg_search"]["headers"]["X-Tandem-Operation-Id"] == "{env:MOST_TANDEM_OPERATION_ID}"
 
 
 def test_cli_chat_sensitive_einfra_guard_uses_catalog():
