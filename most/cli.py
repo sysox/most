@@ -157,6 +157,9 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("--credential-provider", choices=("einfra",),
                           help="route CLI authentication through a stored provider credential")
     cli_chat.add_argument("--model", help="provider model alias when using --credential-provider")
+    cli_chat.add_argument("--sensitivity-tier", choices=("normal", "sensitive"), default="normal",
+                          help="workload sensitivity; sensitive e-INFRA models must be verified on-premise")
+    cli_chat.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
     cli_chat.add_argument("--mcp-server", action="append", metavar="NAME",
                           help="attach an e-INFRA MCP server to Claude (repeatable)")
     return parser

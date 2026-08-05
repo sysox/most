@@ -182,6 +182,10 @@ def run_cli_chat(args: Namespace) -> int:
     writable = bool(getattr(args, "writable", False))
     credential_provider = getattr(args, "credential_provider", None)
     model = getattr(args, "model", None)
+    if credential_provider == "einfra":
+        _enforce_einfra_model_sensitivity(
+            model, getattr(args, "sensitivity_tier", "normal"), getattr(args, "catalog", Path("ai-catalog.yaml")),
+        )
     credential = None
     environment: dict[str, str] = {}
     credential_env_var = None
@@ -264,6 +268,29 @@ def run_cli_chat(args: Namespace) -> int:
         prompt = None
     print(f"session: {session.id}")
     return 0
+
+
+def _enforce_einfra_model_sensitivity(model: str | None, sensitivity_tier: str, catalog: Path) -> None:
+    if sensitivity_tier == "normal":
+        return
+    if sensitivity_tier != "sensitive":
+        raise SystemExit(f"unsupported sensitivity tier: {sensitivity_tier}")
+    if not model:
+        raise SystemExit("--model is required for sensitive e-INFRA CLI sessions")
+    from .model_options import load_model_options
+
+    options = load_model_options(catalog, Path(".most-no-discovery.yaml"))
+    eligible = any(
+        option["provider_id"] == "einfra"
+        and option["model_id"] == model
+        and option.get("is_external_passthrough") is False
+        for option in options
+    )
+    if not eligible:
+        raise SystemExit(
+            f"cannot use einfra/{model} for sensitive workloads; "
+            "catalog must explicitly mark the model as on-premise"
+        )
 
 
 def _transcript_prompt(messages: list[dict[str, object]]) -> str:

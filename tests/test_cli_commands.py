@@ -87,6 +87,14 @@ def test_provider_cli_command_mapping():
     assert config["mcp"]["ddg_search"]["headers"]["Authorization"] == "Bearer {env:MOST_MCP_AUTH}"
 
 
+def test_cli_chat_sensitive_einfra_guard_uses_catalog():
+    from most.cli_chat import _enforce_einfra_model_sensitivity
+
+    _enforce_einfra_model_sensitivity("mini", "sensitive", Path("ai-catalog.yaml"))
+    with pytest.raises(SystemExit, match="catalog must explicitly mark"):
+        _enforce_einfra_model_sensitivity("unknown-model", "sensitive", Path("ai-catalog.yaml"))
+
+
 def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):
     from most import cli
     from most.adapters import Connectivity
