@@ -41,6 +41,13 @@ capture conversations from an already-open desktop app or ordinary browser
 tab; use an explicit MOST route or manual relay when a conversation must be
 journaled.
 
+![MOST architecture: kernel and routes](docs/assets/diagrams/architecture.svg)
+
+The architecture diagram shows the shared credential store, catalog,
+execution gate, and journal behind the API, CLI, and browser routes. The
+[route capability map](docs/assets/diagrams/routes-capability-map.svg) gives
+the compact comparison of those routes.
+
 The versioned [AI provider catalog](ai-catalog.yaml) is the structured source
 for provider routes, model aliases, availability, pricing metadata, and the
 official pages used to refresh it. Exact cloud prices and live e-INFRA model
@@ -240,6 +247,11 @@ uv run python -m most catalog-options --capability transcription
 `catalog-options` displays explicit `input` and `output` columns. For example,
 an embedding model is `text -> embedding`, a Whisper model is `audio -> text`,
 and an image generator is `text -> image`.
+
+![MOST API modality coverage](docs/assets/diagrams/api-modality-coverage.svg)
+
+This modality diagram distinguishes image input for analysis from image output
+for generation; only the generation command produces an image file.
 
 `ai-chat` requires the selected model to advertise the `chat` capability, so
 embedding, image, and speech models cannot be sent accidentally to a text-chat
