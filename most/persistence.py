@@ -113,7 +113,7 @@ class PersistenceCoordinator:
         return target
 
     def append_versioned_jsonl(self, relative: str, records: Iterable[dict[str, Any]], *, record_type: str,
-                               application_version: str = "0.1.0") -> Path:
+                               application_version: str = "0.2.0") -> Path:
         from .serialization import versioned_payload
         versioned = []
         for record in records:

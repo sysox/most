@@ -307,7 +307,7 @@ class ExecutionStep:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def record_payload(record: Any, *, record_type: str, application_version: str = "0.1.0") -> dict[str, Any]:
+def record_payload(record: Any, *, record_type: str, application_version: str = "0.2.0") -> dict[str, Any]:
     data = asdict(record)
     def normalize(value: Any) -> Any:
         if isinstance(value, Enum):

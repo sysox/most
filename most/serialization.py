@@ -20,7 +20,7 @@ def canonicalize(value: Any) -> Any:
 
 
 def versioned_payload(payload: dict[str, Any], *, record_type: str, record_id: str,
-                     application_version: str = "0.1.0", schema_version: int = 1) -> dict[str, Any]:
+                     application_version: str = "0.2.0", schema_version: int = 1) -> dict[str, Any]:
     header = PersistedRecordHeader(schema_version, record_type, record_id, utc_now(), application_version)
     header_data = {
         "schema_version": header.schema_version,

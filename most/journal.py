@@ -22,7 +22,7 @@ def validate_operation_id(value: str) -> str:
 
 
 class JournalService:
-    def __init__(self, root: Path, application_version: str = "0.1.0"):
+    def __init__(self, root: Path, application_version: str = "0.2.0"):
         self.store = PersistenceCoordinator(root)
         self.application_version = application_version
 
