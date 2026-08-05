@@ -148,6 +148,8 @@ def build_parser() -> argparse.ArgumentParser:
     cli_chat.add_argument("prompt", nargs="?")
     cli_chat.add_argument("--title", default="Provider CLI chat")
     cli_chat.add_argument("--allow-unknown-connectivity", action="store_true", help="approve opaque provider CLI network routing")
+    cli_chat.add_argument("--writable", action="store_true",
+                          help="opt into Codex workspace-write mode; default is read-only")
     return parser
 
 

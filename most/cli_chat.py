@@ -18,9 +18,13 @@ CLI_EXECUTABLES = {
 }
 
 
-def command_for(provider: str, prompt: str) -> tuple[str, ...]:
+def command_for(provider: str, prompt: str, *, writable: bool = False) -> tuple[str, ...]:
     if provider == "codex":
+        if writable:
+            return ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", prompt)
         return ("exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", prompt)
+    if writable:
+        raise ValueError(f"writable mode is not implemented for {provider}")
     if provider == "claude":
         return ("-p", prompt)
     if provider == "gemini":
@@ -33,9 +37,10 @@ def command_for(provider: str, prompt: str) -> tuple[str, ...]:
 class ProviderCLIAdapter:
     adapter_type = "provider-cli"
 
-    def __init__(self, provider: str, working_directory: Path):
+    def __init__(self, provider: str, working_directory: Path, *, writable: bool = False):
         self.provider = provider
         self.working_directory = working_directory
+        self.writable = writable
         self.cli = CLIAdapter()
 
     def validate_configuration(self, configuration):
@@ -50,7 +55,7 @@ class ProviderCLIAdapter:
     def execute(self, request, configuration, credential=None):
         messages = request.get("messages", [])
         prompt = _transcript_prompt(messages)
-        arguments = list(command_for(self.provider, prompt))
+        arguments = list(command_for(self.provider, prompt, writable=self.writable))
         execution = self.cli.start(
             CLI_EXECUTABLES[self.provider],
             arguments,
@@ -68,6 +73,7 @@ class ProviderCLIAdapter:
 
 
 def run_cli_chat(args: Namespace) -> int:
+    writable = bool(getattr(args, "writable", False))
     sandbox = (args.data_root / "cli-sandboxes" / args.provider).resolve()
     sandbox.mkdir(parents=True, exist_ok=True)
     sessions = SessionService(args.data_root)
@@ -81,12 +87,12 @@ def run_cli_chat(args: Namespace) -> int:
         adapter_options={
             "executable": CLI_EXECUTABLES[args.provider],
             "working_directory": str(sandbox),
-            "arguments": list(command_for(args.provider, "<prompt>")),
+            "arguments": list(command_for(args.provider, "<prompt>", writable=writable)),
         },
     )
     ConfigurationService(args.data_root).save(configuration)
     manager = ExecutionManager(args.data_root)
-    adapter = ProviderCLIAdapter(args.provider, sandbox)
+    adapter = ProviderCLIAdapter(args.provider, sandbox, writable=writable)
     messages: list[dict[str, str]] = []
     prompt = args.prompt
     while True:

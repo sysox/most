@@ -354,6 +354,14 @@ Codex runs with an ephemeral, read-only, non-repository execution. The
 provider CLI itself handles subscription authentication; MOST never receives
 or stores the provider login token.
 
+For an explicit Codex write-capable session, use `--writable`. This enables
+Codex `workspace-write` only inside MOST's managed CLI sandbox; it does not
+grant access to the original repository automatically:
+
+```bash
+uv run python -m most cli-chat codex --writable --allow-unknown-connectivity
+```
+
 `agy` is the Antigravity CLI replacement for the retired Gemini individual
 sign-in flow. It runs with its own sandbox flag and uses the Google account
 authentication established by Antigravity. Authenticate with `agy` once before

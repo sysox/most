@@ -2,6 +2,8 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
+import pytest
+
 from most.cli import main
 from most.openai_compatible import HTTPResponse
 
@@ -59,6 +61,9 @@ def test_provider_cli_command_mapping():
     assert command_for("claude", "hello") == ("-p", "hello")
     assert command_for("gemini", "hello") == ("-p", "hello")
     assert command_for("agy", "hello") == ("--output-format", "text", "--sandbox", "--print", "hello")
+    assert command_for("codex", "hello", writable=True) == ("exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "hello")
+    with pytest.raises(ValueError, match="writable mode"):
+        command_for("claude", "hello", writable=True)
 
 
 def test_multimodal_cli_tasks_create_execution_and_exposure_record(tmp_path: Path, monkeypatch, capsys):
