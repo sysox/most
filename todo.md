@@ -199,7 +199,7 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
 
 ### Implementation tasks
 - [x] `cli-chat claude --credential-provider einfra` / `cli-chat codex --credential-provider einfra`
-  / `cli-chat opencode --provider einfra` — generate/export the above env
+  / `cli-chat opencode --credential-provider einfra` — generate/export the above env
   vars (or write the opencode.json) from the stored e-INFRA credential
   before invoking the binary, rather than requiring the user to export
   them manually in their shell. This is the actual "local file access"
@@ -208,7 +208,7 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
   flag (confirmed for codex/claude/agy in current README) — the new
   einfra credential plumbing should follow the same flag/option
   conventions rather than inventing a new pattern.
-- [ ] Add `opencode` as a fourth `cli-chat` target alongside
+- [x] Add `opencode` as a fourth `cli-chat` target alongside
   claude/codex/agy (currently confirmed missing from most — README lists
   only claude/codex/agy).
 - [x] Document/enforce: never export these env vars manually in a shell
@@ -256,12 +256,9 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
 ```
 
 ### Implementation tasks
-- [ ] Verify first (don't assume): does `codex` or `opencode` support MCP
-  server registration at all, and if so what's the equivalent of
-  `claude mcp add-json`? Not confirmed in any doc read so far — only
-  Claude Code's MCP attach command is documented. If codex/opencode lack
-  MCP support, the mechanism below is Claude-Code-only for now, and that
-  scope limit should be explicit rather than assumed away.
+- [x] Verify first (don't assume): Claude and OpenCode support MCP
+  configuration; Codex is not included because no equivalent current CLI
+  registration API was verified. The scope limit is explicit.
 - [x] `most` implements the *mechanism*: given a list of MCP server names,
   run the `claude mcp add-json` calls (or equivalent registration for
   codex/opencode if confirmed above) before starting a cli-chat session
