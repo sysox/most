@@ -159,6 +159,10 @@ def build_parser() -> argparse.ArgumentParser:
     policy_check.add_argument("--provider", required=True)
     policy_check.add_argument("--model")
     policy_check.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    aliases = subparsers.add_parser("list-aliases", help="list maintained catalog model aliases")
+    aliases.add_argument("--provider")
+    aliases.add_argument("--catalog", type=Path, default=Path("ai-catalog.yaml"))
+    subparsers.add_parser("list-mcp-servers", help="list configured MCP servers")
     cli_chat = subparsers.add_parser("cli-chat", help="communicate through an installed provider CLI")
     cli_chat.add_argument("provider", nargs="?", choices=("codex", "claude", "gemini", "agy", "opencode"))
     cli_chat.add_argument("--agent", choices=("codex", "claude", "gemini", "agy", "opencode"),
@@ -239,6 +243,16 @@ def main(argv: list[str] | None = None) -> int:
             "sensitivity_tier": args.sensitivity_tier,
         }))
         return 0 if allowed else 1
+    if args.command == "list-aliases":
+        from .catalog_queries import list_aliases
+
+        print(json.dumps(list_aliases(args.catalog, args.provider), indent=2))
+        return 0
+    if args.command == "list-mcp-servers":
+        from .catalog_queries import list_mcp_servers
+
+        print(json.dumps(list_mcp_servers(), indent=2))
+        return 0
     if args.command == "chat":
         return run_chat(args)
     if args.command == "cerit-chat":

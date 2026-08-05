@@ -80,6 +80,17 @@ sensitive work.
 generated snapshot of dynamic provider models and should be refreshed regularly;
 it is not the place for manually maintained pricing.
 
+Downstream integrations can query maintained aliases and MCP server names
+without loading credentials or contacting a provider:
+
+```bash
+uv run python -m most list-aliases --provider einfra
+uv run python -m most list-mcp-servers
+```
+
+Both commands return JSON from MOST's catalog and CLI MCP registry, so clients
+such as Tandem do not need to duplicate provider aliases or tool URLs.
+
 The live provider test is opt-in. Test all configured providers and fail if a
 provider is unavailable or missing credentials:
 

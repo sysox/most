@@ -446,3 +446,6 @@ out of scope unless a concrete use case appears.
 - [x] MOST-native interactive context rewind is available as `/rewind` or
   `/rewind N`; it records checkpoint and rewind events without deleting the
   append-only journal. File rollback remains a separate Git/workspace action.
+- [x] Tandem metadata queries are available as `list-aliases` and
+  `list-mcp-servers`; both are read-only JSON commands backed by MOST's
+  catalog and `MCP_SERVERS` registry and do not use credentials.
