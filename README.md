@@ -27,6 +27,7 @@ uv run python -m most --data-root ./application-data create-configuration "Local
 uv run python -m most --data-root ./application-data list-sessions
 uv run python -m most --data-root ./application-data list-configurations
 uv run python -m most --data-root ./application-data inspect-execution <execution-id>
+uv run python -m most --data-root ./application-data history --pipeline-id <pipeline-id> --json
 uv run python -m most --data-root ./application-data inspect-workspace <repository> --diff
 uv run python -m most --data-root ./application-data inspect-workspace <repository> --diff --diff-against HEAD
 uv run python -m most --data-root ./application-data inspect-workspace <repository> --compatibility
@@ -62,8 +63,9 @@ For machine-driven stages, `cli-chat`, `ai-chat`, and `cerit-chat` accept
 `profile`, `pipeline_id`, `stage_index`, and `operation_id`. Human-readable
 framing is disabled in this mode so integrations do not need to scrape stdout.
 
-See [ai-map.md](ai-map.md) for the current provider inventory, recommended
-task routing, privacy boundaries, and example commands.
+See [ai-map.md](ai-map.md) for the quick provider map and
+[the detailed AI provider guide](docs/ai-provider-guide.md) for official links,
+e-INFRA model aliases, MCP servers, local models, and pricing guidance.
 
 Current interface scope is the command-line application, provider CLI
 wrappers, APIs, and MOST-managed browser sessions. MOST does not passively

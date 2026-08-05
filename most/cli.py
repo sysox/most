@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .adapters import create_default_registry
+from .journal import JournalService
 from .models import AIConfiguration, AIRequest, IntermediateResult, SessionMode
 from .openai_compatible import normalize_response
 from .services import ConfigurationService, ExecutionManager, SessionService
@@ -27,6 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     configuration.add_argument("--access-method", default="openai-compatible")
     subparsers.add_parser("list-sessions")
     subparsers.add_parser("list-configurations")
+    history = subparsers.add_parser("history", help="inspect journaled pipeline stages")
+    history.add_argument("--pipeline-id", required=True)
+    history.add_argument("--json", action="store_true")
     execution = subparsers.add_parser("inspect-execution")
     execution.add_argument("execution_id")
     workspace = subparsers.add_parser("inspect-workspace")
@@ -227,6 +231,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "list-configurations":
         print(json.dumps(ConfigurationService(args.data_root).list(), indent=2, default=str))
+        return 0
+    if args.command == "history":
+        try:
+            records = JournalService(args.data_root).pipeline_history(args.pipeline_id)
+        except (OSError, ValueError) as exc:
+            raise SystemExit(str(exc)) from exc
+        print(json.dumps(records, ensure_ascii=False, indent=2) if args.json else json.dumps(records, ensure_ascii=False))
         return 0
     if args.command == "inspect-workspace":
         service = WorkspaceService(args.data_root, args.repository)
