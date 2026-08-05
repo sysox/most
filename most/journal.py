@@ -9,6 +9,17 @@ from .models import AIRequest, IntermediateResult, record_payload
 from .persistence import PersistenceCoordinator
 
 
+def validate_operation_id(value: str) -> str:
+    """Validate the identifier before it can cross a header/environment boundary."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("operation_id must be a non-empty string")
+    if len(value) > 256:
+        raise ValueError("operation_id must be at most 256 characters")
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("operation_id must not contain control characters")
+    return value
+
+
 class JournalService:
     def __init__(self, root: Path, application_version: str = "0.1.0"):
         self.store = PersistenceCoordinator(root)
@@ -64,15 +75,17 @@ class JournalService:
 def _journal_context(context: dict[str, Any] | None) -> dict[str, Any]:
     if not context:
         return {}
-    unknown = set(context) - {"profile", "pipeline_id", "stage_index"}
+    unknown = set(context) - {"profile", "pipeline_id", "stage_index", "operation_id"}
     if unknown:
         raise ValueError(f"unknown journal context fields: {sorted(unknown)}")
     result: dict[str, Any] = {}
-    for key in ("profile", "pipeline_id"):
+    for key in ("profile", "pipeline_id", "operation_id"):
         value = context.get(key)
         if value is not None:
             if not isinstance(value, str) or not value:
                 raise ValueError(f"journal field {key} must be a non-empty string")
+            if key == "operation_id":
+                validate_operation_id(value)
             result[key] = value
     stage_index = context.get("stage_index")
     if stage_index is not None:

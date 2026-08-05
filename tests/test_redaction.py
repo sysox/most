@@ -1,8 +1,10 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 from most.cli_adapter import CLIAdapter
-from most.journal import JournalService
+from most.journal import JournalService, validate_operation_id
 from most.redaction import redact_text
 
 
@@ -28,3 +30,8 @@ def test_journal_response_is_redacted(tmp_path: Path):
 def test_journal_response_redacts_exact_secret_value(tmp_path: Path):
     JournalService(tmp_path).record_response("session", "response", {"text": "raw-token"}, ("raw-token",))
     assert "raw-token" not in (tmp_path / "sessions/session/structured/response-response.json").read_text()
+
+
+def test_operation_id_rejects_header_control_characters():
+    with pytest.raises(ValueError, match="control characters"):
+        validate_operation_id("stage-0\r\nInjected: yes")

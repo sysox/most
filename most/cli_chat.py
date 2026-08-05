@@ -10,6 +10,7 @@ from pathlib import Path
 from .adapters import Connectivity, Observability
 from .cli_adapter import CLIAdapter
 from .credentials import resolve_provider_credential
+from .journal import validate_operation_id
 from .models import AIConfiguration, AIRequest, IntermediateResult, new_id
 from .services import ConfigurationService, ExecutionManager, SessionService
 
@@ -83,11 +84,11 @@ def credential_environment(cli: str, provider: str, model: str | None) -> tuple[
     raise ValueError(f"e-INFRA credentials are not implemented for {cli}")
 
 
-def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
+def mcp_config_payload(server_names: list[str], operation_id: str | None = None) -> dict[str, object]:
     unknown = sorted(set(server_names) - MCP_SERVERS.keys())
     if unknown:
         raise ValueError(f"unknown e-INFRA MCP server(s): {', '.join(unknown)}")
-    return {
+    payload = {
         "mcpServers": {
             name: {
                 "type": "http",
@@ -97,9 +98,13 @@ def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
             for name in dict.fromkeys(server_names)
         }
     }
+    if operation_id:
+        for server in payload["mcpServers"].values():
+            server["headers"]["X-Tandem-Operation-Id"] = "${MOST_TANDEM_OPERATION_ID}"
+    return payload
 
 
-def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[str, object]:
+def opencode_config_payload(model: str | None, server_names: list[str], operation_id: str | None = None) -> dict[str, object]:
     payload: dict[str, object] = {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
@@ -127,6 +132,9 @@ def opencode_config_payload(model: str | None, server_names: list[str]) -> dict[
             }
             for name in dict.fromkeys(server_names)
         }
+        if operation_id:
+            for server in payload["mcp"].values():
+                server["headers"]["X-Tandem-Operation-Id"] = "{env:MOST_TANDEM_OPERATION_ID}"
     return payload
 
 
@@ -156,12 +164,19 @@ class ProviderCLIAdapter:
             **configuration,
             "adapter_options": {**configuration.get("adapter_options", {}), "arguments": arguments},
         }
+        operation_id = request.get("operation_id")
+        if operation_id:
+            environment = dict(runtime_configuration["adapter_options"].get("environment", {}))
+            environment["MOST_TANDEM_OPERATION_ID"] = str(operation_id)
+            runtime_configuration["adapter_options"]["environment"] = environment
         mcp_path = None
         mcp_servers = configuration.get("adapter_options", {}).get("mcp_servers", [])
         opencode_model = configuration.get("adapter_options", {}).get("opencode_model")
         if self.provider == "opencode" and opencode_model:
             environment = dict(runtime_configuration["adapter_options"].get("environment", {}))
-            environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config_payload(str(opencode_model), list(mcp_servers)))
+            environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(
+                opencode_config_payload(str(opencode_model), list(mcp_servers), str(operation_id) if operation_id else None)
+            )
             runtime_configuration["adapter_options"]["environment"] = environment
         if mcp_servers:
             if self.provider == "claude":
@@ -170,7 +185,7 @@ class ProviderCLIAdapter:
                     dir=self.working_directory, delete=False,
                 ) as handle:
                     mcp_path = Path(handle.name)
-                    json.dump(mcp_config_payload(list(mcp_servers)), handle)
+                    json.dump(mcp_config_payload(list(mcp_servers), str(operation_id) if operation_id else None), handle)
                 runtime_configuration["adapter_options"]["arguments"] = [*arguments, "--mcp-config", str(mcp_path)]
             elif self.provider != "opencode":
                 raise ValueError("MCP is currently supported only for Claude and OpenCode CLI")
@@ -212,6 +227,16 @@ def run_cli_chat(args: Namespace) -> int:
     environment: dict[str, str] = {}
     credential_env_var = None
     mcp_servers = list(getattr(args, "mcp_server", []) or [])
+    no_mcp = bool(getattr(args, "no_mcp", False))
+    operation_id = getattr(args, "operation_id", None)
+    if operation_id:
+        try:
+            operation_id = validate_operation_id(operation_id)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        environment["MOST_TANDEM_OPERATION_ID"] = operation_id
+    if no_mcp and mcp_servers:
+        raise SystemExit("--no-mcp cannot be combined with --mcp-server")
     if credential_provider:
         if args.provider not in {"codex", "claude", "opencode"}:
             raise SystemExit("--credential-provider einfra currently supports only codex and claude")
@@ -219,7 +244,7 @@ def run_cli_chat(args: Namespace) -> int:
         credential = resolve_provider_credential(credential_provider)
         if not credential:
             raise SystemExit("missing einfra credential; run `most credentials set einfra` first")
-        if args.provider == "claude":
+        if args.provider == "claude" and not no_mcp:
             mcp_servers = list(dict.fromkeys(["ddg_search", *mcp_servers]))
     elif mcp_servers:
         raise SystemExit("--mcp-server requires --credential-provider einfra")
@@ -303,6 +328,7 @@ def run_cli_chat(args: Namespace) -> int:
             profile=getattr(args, "profile", None),
             pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
+            operation_id=getattr(args, "operation_id", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(
@@ -321,6 +347,10 @@ def run_cli_chat(args: Namespace) -> int:
             sequence_number=len(messages),
             result_type="response",
             parent_result_id=session.active_result_id,
+            profile=getattr(args, "profile", None),
+            pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
+            operation_id=getattr(args, "operation_id", None),
         )
         sessions.add_result(result, content)
         session.active_result_id = result.id
