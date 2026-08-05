@@ -568,6 +568,33 @@ confirmation_required_transitions:
 
 Absence of a matching rule must not be interpreted as permission.
 
+## 7.7a SensitivityPolicy (implemented, addendum)
+
+A second, separate policy dimension from `ExposureTransitionPolicy` above:
+a `sensitivity_tier` (`normal` | `sensitive`) attached per-request, evaluated
+against the *route* and, for e-INFRA, the *specific model*. Added to support
+downstream orchestration (Tandem) without duplicating policy logic in the
+caller.
+
+```text
+route_policy_decision(access_method_id, sensitivity_tier) -> RoutePolicyDecision
+    - allowed: bool
+    - reason: str
+    Rejects sensitivity_tier == "sensitive" on the browser access method.
+
+model_policy_reason(provider_id, model_id, sensitivity_tier, catalog_path) -> str | None
+    For provider "einfra" + sensitivity_tier == "sensitive": reads
+    ai-catalog.yaml and requires the model entry to declare
+    is_external_passthrough: false. Returns a denial reason string
+    otherwise, None if allowed.
+```
+
+Both are pure functions (`most/policies.py`) reused by execution-time
+enforcement (`_enforce_einfra_model_sensitivity` in `cli.py`/`cli_chat.py`)
+and by the standalone `most policy-check` CLI command, so a preflight check
+and the real enforcement can never drift apart. `policy-check` evaluates
+both without touching credentials or contacting a provider.
+
 ## 7.8 LoggingPolicy
 
 ```text
@@ -831,7 +858,18 @@ AIRequest
 - provider_options
 - execution_options
 - created_at
+- profile (optional, str)
+- pipeline_id (optional, str)
+- stage_index (optional, int)
 ```
+
+`profile`/`pipeline_id`/`stage_index` are orchestration metadata for a
+downstream caller (Tandem) running a multi-stage pipeline through `most`.
+`most` persists them on the journal entry but assigns no meaning to them —
+it does not interpret `stage_index` as a round/role, and has no matching
+`--round`/`--role` flag; that interpretation belongs entirely to the caller
+that set them. Exposed via `--profile`/`--pipeline-id`/`--stage-index` on
+`cli-chat`, `ai-chat`, and `cerit-chat`.
 
 ## 9.2 Message
 
