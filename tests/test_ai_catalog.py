@@ -56,6 +56,8 @@ def test_ai_catalog_has_provider_routes_and_pricing_metadata():
             assert model["capabilities"]
             if model.get("kind") == "maintained-alias":
                 assert model.get("resolves_to")
+            if provider["id"] == "einfra":
+                assert model["is_external_passthrough"] is False
 
         if not provider["models"]:
             assert any(method.get("model_discovery") for method in provider["access_methods"])

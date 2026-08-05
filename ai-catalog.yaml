@@ -65,6 +65,7 @@ providers:
   models:
   - id: mini
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: gpt-oss-120b
     capabilities:
@@ -74,6 +75,7 @@ providers:
     output_modalities: [text]
   - id: coder
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: qwen3.5-122b
     capabilities:
@@ -83,6 +85,7 @@ providers:
     output_modalities: [text]
   - id: agentic
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: qwen3.5-122b
     capabilities:
@@ -93,6 +96,7 @@ providers:
     output_modalities: [text]
   - id: thinker
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: deepseek-v4-flash-thinking
     capabilities:
@@ -102,6 +106,7 @@ providers:
     output_modalities: [text]
   - id: kimi
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: kimi-k2.7
     capabilities:
@@ -112,6 +117,7 @@ providers:
     output_modalities: [text]
   - id: glm
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: glm-5.2
     capabilities:
@@ -122,6 +128,7 @@ providers:
     output_modalities: [text]
   - id: deepseek
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: deepseek-v4-flash
     capabilities:
@@ -131,6 +138,7 @@ providers:
     output_modalities: [text]
   - id: deepseek-thinking
     status: available
+    is_external_passthrough: false
     kind: maintained-alias
     resolves_to: deepseek-v4-flash-thinking
     capabilities:
@@ -140,42 +148,49 @@ providers:
     output_modalities: [text]
   - id: whisper-large-v3
     status: available
+    is_external_passthrough: false
     capabilities:
     - transcription
     input_modalities: [audio]
     output_modalities: [text]
   - id: qwen3-embedding-4b
     status: available
+    is_external_passthrough: false
     capabilities:
     - embedding
     input_modalities: [text]
     output_modalities: [embedding]
   - id: qwen3-reranker-4b
     status: available
+    is_external_passthrough: false
     capabilities:
     - reranking
     input_modalities: [text]
     output_modalities: [reranking]
   - id: nomic-embed-text-v1.5
     status: available
+    is_external_passthrough: false
     capabilities:
     - embedding
     input_modalities: [text]
     output_modalities: [embedding]
   - id: nomic-embed-text-v2-moe
     status: available
+    is_external_passthrough: false
     capabilities:
     - embedding
     input_modalities: [text]
     output_modalities: [embedding]
   - id: mxbai-embed-large:latest
     status: available
+    is_external_passthrough: false
     capabilities:
     - embedding
     input_modalities: [text]
     output_modalities: [embedding]
   - id: multilingual-e5-large-instruct
     status: available
+    is_external_passthrough: false
     capabilities:
     - embedding
     input_modalities: [text]
