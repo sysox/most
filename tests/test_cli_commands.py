@@ -81,6 +81,25 @@ def test_local_chat_json_output_is_machine_readable(tmp_path: Path, capsys):
     }
 
 
+def test_native_chat_journals_stage_metadata(tmp_path: Path, monkeypatch, capsys):
+    from most.native_chat import run_native_chat
+
+    monkeypatch.setattr("most.native_chat.resolve_provider_credential", lambda *_args: "secret")
+    args = Namespace(
+        data_root=tmp_path, prompt="hello", model="mini", api_key_env="TEST_KEY", title="native",
+        json=True, profile="review", pipeline_id="pipe-1", stage_index=2, operation_id="pipe-1:stage-2",
+    )
+    assert run_native_chat(
+        args, provider="anthropic", adapter_type="anthropic-api", base_url="https://example",
+        normalize=lambda _response: {"content_parts": [{"text": "native reply"}]}, registry=FakeRegistry(),
+    ) == 0
+    payload = json.loads(capsys.readouterr().out)
+    result_path = next((tmp_path / "sessions" / payload["session_id"] / "structured").glob("result-*.json"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    assert result["operation_id"] == "pipe-1:stage-2"
+    assert result["pipeline_id"] == "pipe-1"
+
+
 def test_provider_cli_command_mapping():
     from most.cli_chat import (
         command_for,

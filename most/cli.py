@@ -863,13 +863,18 @@ def run_gpt_chat(args: argparse.Namespace, *, registry=None) -> int:
             session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
             messages=list(messages), profile=getattr(args, "profile", None),
             pipeline_id=getattr(args, "pipeline_id", None), stage_index=getattr(args, "stage_index", None),
+            operation_id=getattr(args, "operation_id", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)
         normalized = normalize_openai_response(response)
         content = "".join(str(part.get("text", "")) for part in normalized["content_parts"] if isinstance(part, dict))
-        result = IntermediateResult(session_id=session.id, interaction_id=interaction.id, execution_id=execution.id,
-                                    sequence_number=len(messages), result_type="response", parent_result_id=session.active_result_id)
+        result = IntermediateResult(
+            session_id=session.id, interaction_id=interaction.id, execution_id=execution.id,
+            sequence_number=len(messages), result_type="response", parent_result_id=session.active_result_id,
+            profile=getattr(args, "profile", None), pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None), operation_id=getattr(args, "operation_id", None),
+        )
         sessions.add_result(result, content)
         session.active_result_id = result.id
         messages.append({"role": "assistant", "content": content})
