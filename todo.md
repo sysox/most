@@ -430,3 +430,16 @@ are:
 
 W3C PROV/OpenLineage, OpenTelemetry, and Qdrant/codebase indexing remain
 out of scope unless a concrete use case appears.
+
+### Tandem prerequisites
+
+- [x] Standalone `policy-check` returns a structured preflight decision using
+  the same route sensitivity evaluator as execution-time enforcement.
+- [x] `cli-chat`, `ai-chat`, and `cerit-chat` expose `profile`, `pipeline_id`,
+  and `stage_index` and propagate them into the native journal fields.
+- [x] Claude writable sessions use `--permission-mode acceptEdits`; an
+  explicit `--workspace` selects the target repository while the default
+  remains the managed sandbox.
+- [x] `inspect-workspace --diff` scope is documented: it reports current
+  `HEAD`-relative Git diff, not an invocation snapshot. Tandem must use a
+  clean/dedicated workspace or record a baseline commit per stage.

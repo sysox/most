@@ -32,6 +32,21 @@ uv run python -m most --data-root ./application-data inspect-workspace <reposito
 uv run python -m most --data-root ./application-data chat --model granite4.1:3b
 ```
 
+For a file-mutating Claude Code stage, opt in explicitly to edits and point
+MOST at the target repository:
+
+```bash
+uv run python -m most cli-chat --agent claude --writable \
+  --workspace /path/to/repository --profile coding \
+  --pipeline-id pipeline-123 --stage-index 1 "Implement the requested change"
+```
+
+Without `--workspace`, CLI sessions use a MOST-managed sandbox. The
+`inspect-workspace --diff` command reports the repository's current Git diff
+against `HEAD`; it is not an invocation-scoped snapshot. For a per-pipeline
+stage diff, use a clean/dedicated workspace or capture the baseline commit
+before invoking the stage and compare against that baseline.
+
 See [ai-map.md](ai-map.md) for the current provider inventory, recommended
 task routing, privacy boundaries, and example commands.
 
