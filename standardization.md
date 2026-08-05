@@ -29,6 +29,11 @@ executes that list at session start.
 Rule: tandem never calls `claude mcp add-json` itself — same violation
 class as tandem calling a provider directly.
 
+Status: implemented for Claude through a session-scoped `--mcp-config` file.
+The file contains no secret; the e-INFRA token is supplied through the child
+process environment. Codex and OpenCode are not included until their current
+CLI registration APIs are verified.
+
 ### OIDC / OAuth2 device-flow
 Replaces: manual copy-paste of the e-INFRA API key out of the WebUI
 Settings > Account > API keys screen into `most credentials set einfra`.
@@ -36,8 +41,10 @@ Change: e-INFRA CZ AAI already runs on Shibboleth/OIDC. `most credentials
 set einfra` could trigger a device-flow login instead of requiring a
 manual key copy.
 Payoff: fewer manual steps, key never sits in shell history or clipboard.
-Status: worth doing — directly removes a bad manual step that exists
-today.
+Status: deferred. The current e-INFRA API documentation requires a separate
+API key generated in Open WebUI and does not document an OIDC token as an API
+credential. Keep the secure keyring flow until e-INFRA exposes a supported
+device flow that issues an API-compatible credential.
 
 ### JSON Schema
 Replaces: no validation on `ai-catalog.yaml` / `task-profiles.yaml`
@@ -46,7 +53,8 @@ Change: schema-validate both files, catch malformed entries before a
 runtime failure. Cheap to add since `catalog-audit --update` already
 writes back to these files programmatically — a bad write is currently
 silent until something calls it.
-Status: low cost, adopt now.
+Status: implemented for `ai-catalog.yaml`; `task-profiles.yaml` remains owned
+by tandem.
 
 ## Consider later — no current pain to justify it
 
@@ -64,14 +72,12 @@ Overkill for a single-user CLI tool. OTel earns its complexity in
 distributed/multi-service systems — most is neither. Skip.
 
 ## Priority order
-1. JSON Schema validation on catalog/profile YAML — cheapest, no design
-   risk.
-2. OIDC device-flow for credential setup — removes a real manual-step
-   pain point.
+1. Journal pipeline context fields — implemented.
+2. JSON Schema validation on the MOST catalog — implemented.
 3. LiteLLM refactor of the api route's provider clients — worthwhile but
    not urgent, do when next touching that code anyway.
-4. MCP attach mechanism — do alongside the e-INFRA cli-chat credential
-   profile work (already on the most todo list), not as a separate effort.
+4. MCP attach mechanism — implemented for Claude; extend only after another
+   CLI exposes a verified registration API.
 5. PROV/OpenLineage, OpenTelemetry — revisit only if a concrete need
    appears (e.g. journal needs external citation, or most stops being
    single-user/single-machine).

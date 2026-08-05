@@ -35,19 +35,19 @@ Only the narrower items below remain open.
   is a stable contract.**
 
 ### Remaining implementation tasks
-- [ ] Confirm whether `thinker` and `deepseek-thinking` aliases exist in
+- [x] Confirm whether `thinker` and `deepseek-thinking` aliases exist in
   the current catalog — README only explicitly lists mini/coder/agentic/
   kimi/glm/deepseek. Add if missing (see alias table below).
-- [ ] Confirm whether reasoning-mode control (`chat_template_kwargs` for
+- [x] Confirm whether reasoning-mode control (`chat_template_kwargs` for
   DeepSeek/GLM families, see below) is implemented in the `ai-chat`
   payload builder — unconfirmed either way, verify before assuming gap
   or assuming done.
-- [ ] Naming/duplication check: `cerit-chat --model mini` and
+- [x] Naming/duplication check: `cerit-chat --model mini` and
   `ai-chat --provider einfra` appear to be two separate entry points to
   the same provider. Confirm whether this is intentional (legacy alias
   command vs. generic unified command) or accidental duplication — pick
   one canonical path if it's the latter.
-- [ ] Confirm catalog entries mark `stability: alias` vs
+- [x] Confirm catalog entries mark maintained aliases vs
   `stability: volatile` for e-INFRA models — not confirmed present,
   low-cost to add if missing.
 
@@ -76,7 +76,7 @@ Only the narrower items below remain open.
 `qwen3-embedding-4b` (2560-dim, 40960 ctx, multilingual), `qwen3-reranker-4b`,
 `nomic-embed-text-v1.5`/`v2-moe` (768-dim, English), `mxbai-embed-large`,
 `multilingual-e5-large-instruct`. Same endpoint, `/v1` embeddings path.
-- [ ] Add these as catalog entries under the `einfra` provider with
+- [x] Add these as catalog entries under the `einfra` provider with
   `capability: embedding` — currently only listed as facts, no confirmed
   catalog entry exists for them yet.
 
@@ -89,7 +89,7 @@ API" — confirmed still Gemini-only, real gap.
 `ai-transcribe --provider openai --model whisper-1` — it already accepts
 a `--provider` flag and is provider-generic. This means adding e-INFRA
 Whisper support is much smaller than previously scoped:
-- [ ] Add `whisper-large-v3` (API-only, per e-INFRA docs) as an einfra
+- [x] Add `whisper-large-v3` (API-only, per e-INFRA docs) as an einfra
   catalog entry with `capability: transcription`. If the provider
   adapter is truly generic (as `--provider openai` suggests), this may
   be a catalog-only change — verify, don't assume code changes needed.
@@ -126,17 +126,17 @@ pipelines), the actual current behavior must be audited and made
 explicit — not assumed uniform.
 
 ### Implementation tasks — sandbox audit (do this FIRST, blocks correctness of everything else in this section)
-- [ ] Audit and document current write-access behavior for each
+- [x] Audit and document current write-access behavior for each
   `cli-chat` wrapper (claude / codex / agy) as most actually configures
   it today — not what upstream CLI defaults to, what most's own
   invocation sets.
-- [ ] If codex's ephemeral/read-only/non-repo mode is an intentional
+- [x] If codex's ephemeral/read-only/non-repo mode is an intentional
   safety default (plausible — matches most's general cautious posture),
   expose an explicit opt-in for write-capable execution (e.g. a
   `--writable` flag or task-profile-level `write: true`) rather than
   leaving "local file access" as an implicit, wrapper-dependent
   assumption.
-- [ ] This directly affects tandem: a `coding` task profile that expects
+- [x] This directly affects tandem: a `coding` task profile that expects
   actual file edits must specify a wrapper/mode that is confirmed
   writable — defaulting to codex's current mode would silently produce
   no file changes and could be mistaken for a bug rather than a
@@ -198,7 +198,7 @@ Inside opencode: `/connect` → select LiteLLM → paste API key → select mode
 Known issue: `gpt-oss-120b` has partial support in OpenCode.
 
 ### Implementation tasks
-- [ ] `cli-chat claude --provider einfra` / `cli-chat codex --provider einfra`
+- [x] `cli-chat claude --credential-provider einfra` / `cli-chat codex --credential-provider einfra`
   / `cli-chat opencode --provider einfra` — generate/export the above env
   vars (or write the opencode.json) from the stored e-INFRA credential
   before invoking the binary, rather than requiring the user to export
@@ -211,10 +211,10 @@ Known issue: `gpt-oss-120b` has partial support in OpenCode.
 - [ ] Add `opencode` as a fourth `cli-chat` target alongside
   claude/codex/agy (currently confirmed missing from most — README lists
   only claude/codex/agy).
-- [ ] Document/enforce: never export these env vars manually in a shell
+- [x] Document/enforce: never export these env vars manually in a shell
   outside most — breaks journaling guarantee (see conversation decision:
   "always `most cli-chat`, never bare `claude`").
-- [ ] Security implementation detail: pass the API key to the child
+- [x] Security implementation detail: pass the API key to the child
   process via `subprocess`'s `env=` parameter directly, not by writing a
   literal `export ANTHROPIC_AUTH_TOKEN=sk-...` line to a shell — the
   latter exposes the key in that process's environment as visible via
@@ -262,18 +262,18 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   Claude Code's MCP attach command is documented. If codex/opencode lack
   MCP support, the mechanism below is Claude-Code-only for now, and that
   scope limit should be explicit rather than assumed away.
-- [ ] `most` implements the *mechanism*: given a list of MCP server names,
+- [x] `most` implements the *mechanism*: given a list of MCP server names,
   run the `claude mcp add-json` calls (or equivalent registration for
   codex/opencode if confirmed above) before starting a cli-chat session
   routed through einfra.
-- [ ] Auto-include `ddg_search` by default whenever
+- [x] Auto-include `ddg_search` by default whenever
   `provider=einfra AND cli=claude`, since native web tools are silently
   broken in that combination — this should not require the caller to
   remember it.
-- [ ] Do NOT hardcode which servers to attach beyond the ddg_search
+- [x] Do NOT hardcode which servers to attach beyond the ddg_search
   default above — the general list is a parameter supplied by the caller
   (tandem's task-profiles.yaml `mcp:` field), not decided inside most.
-- [ ] Warning in docs: don't attach all servers by default, each consumes
+- [x] Warning in docs: don't attach all servers by default, each consumes
   context budget.
 
 ---
@@ -291,7 +291,7 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   under special agreements. Data leaves e-INFRA infrastructure for these.
 
 ### Implementation tasks
-- [ ] Hard-block (not just warn) any `browser-chat`-style / WebUI-style
+- [x] Hard-block (not just warn) any `browser-chat`-style / WebUI-style
   route when the active session/workspace tier is `sensitive`. This is
   an addition to most's existing exposure-policy evaluator, same
   mechanism already used elsewhere — just add this rule.
@@ -311,7 +311,7 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
   needed, it goes through the api route (`ai-speech`/`ai-transcribe`,
   already implemented, see section on modality commands below),
   not through browser automation.
-- [ ] Add an `is_external_passthrough: bool` field to catalog entries for
+- [x] Add an `is_external_passthrough: bool` field to catalog entries for
   e-INFRA-listed models; default `false`, must be explicitly confirmed
   `false` (i.e. verified on-prem) before a model is eligible for
   `sensitive`-tier task profiles. Until verified, treat unknown e-INFRA
@@ -325,10 +325,10 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
 
 ## 5. Journal extension (needed for tandem, implement in most)
 
-- [ ] Add optional fields to journal entry schema: `profile` (string),
+- [x] Add optional fields to journal entry schema: `profile` (string),
   `pipeline_id` (string), `stage_index` (int). All optional/nullable —
   existing entries without them remain valid.
-- [ ] No new journal file/store — tandem writes into most's existing
+- [x] No new journal file/store — tandem writes into most's existing
   `application-data` journal using most's existing write path, just
   populating these new fields when applicable.
 
@@ -337,11 +337,12 @@ claude mcp add-json ddg_search '{"type":"http","scope":"user","url":"https://llm
 ## 6. Standardization — adopt now
 
 ### JSON Schema validation
-- [ ] Write JSON Schema for `ai-catalog.yaml` and `task-profiles.yaml`
+- [x] Write JSON Schema for `ai-catalog.yaml`; `task-profiles.yaml` remains
+  owned by tandem.
   (the latter technically lives in tandem, but if most exposes a shared
   schema-validation utility, tandem can reuse it — decide based on
   whether most already has a schema/validation dependency).
-- [ ] Validate on load and on `catalog-audit --update` write-back, fail
+- [x] Validate on load and on `catalog-audit --update` write-back, fail
   loudly rather than writing malformed YAML silently.
 
 ### OIDC / OAuth2 device-flow for e-INFRA credentials

@@ -350,6 +350,17 @@ uv run python -m most --data-root ./application-data cli-chat claude --allow-unk
 uv run python -m most --data-root ./application-data cli-chat agy --allow-unknown-connectivity
 ```
 
+For e-INFRA Claude sessions, MOST can attach MCP servers without modifying
+the user's persistent Claude configuration:
+
+```bash
+uv run python -m most cli-chat claude --credential-provider einfra \
+  --mcp-server DocFork --mcp-server npmjs
+```
+
+`ddg_search` is included automatically for e-INFRA Claude sessions. Attach
+only the servers needed for the task because each one consumes context.
+
 Codex runs with an ephemeral, read-only, non-repository execution. The
 provider CLI itself handles subscription authentication; MOST never receives
 or stores the provider login token.
