@@ -674,6 +674,7 @@ def run_cerit_chat(args: argparse.Namespace, *, registry=None) -> int:
         request = AIRequest(
             session_id=session.id, interaction_id=interaction.id, configuration_id=configuration.id,
             messages=list(messages), generation_options=generation_options,
+            execution_options={"sensitivity_tier": getattr(args, "sensitivity_tier", "normal")},
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(execution, request, configuration, adapter, credential=credential)

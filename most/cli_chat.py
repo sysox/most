@@ -240,6 +240,7 @@ def run_cli_chat(args: Namespace) -> int:
             interaction_id=interaction.id,
             configuration_id=configuration.id,
             messages=list(messages),
+            execution_options={"sensitivity_tier": getattr(args, "sensitivity_tier", "normal")},
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(
