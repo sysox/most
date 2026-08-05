@@ -252,6 +252,7 @@ class IntermediateResult:
     profile: str | None = None
     pipeline_id: str | None = None
     stage_index: int | None = None
+    operation_id: str | None = None
     created_at: str = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -269,6 +270,7 @@ class AIRequest:
     profile: str | None = None
     pipeline_id: str | None = None
     stage_index: int | None = None
+    operation_id: str | None = None
     created_at: str = field(default_factory=utc_now)
 
 

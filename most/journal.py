@@ -64,11 +64,11 @@ class JournalService:
 def _journal_context(context: dict[str, Any] | None) -> dict[str, Any]:
     if not context:
         return {}
-    unknown = set(context) - {"profile", "pipeline_id", "stage_index"}
+    unknown = set(context) - {"profile", "pipeline_id", "stage_index", "operation_id"}
     if unknown:
         raise ValueError(f"unknown journal context fields: {sorted(unknown)}")
     result: dict[str, Any] = {}
-    for key in ("profile", "pipeline_id"):
+    for key in ("profile", "pipeline_id", "operation_id"):
         value = context.get(key)
         if value is not None:
             if not isinstance(value, str) or not value:

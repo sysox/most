@@ -92,7 +92,10 @@ def mcp_config_payload(server_names: list[str]) -> dict[str, object]:
             name: {
                 "type": "http",
                 "url": MCP_SERVERS[name],
-                "headers": {"Authorization": "Bearer ${MOST_MCP_AUTH}"},
+                "headers": {
+                    "Authorization": "Bearer ${MOST_MCP_AUTH}",
+                    "X-Tandem-Operation-Id": "${MOST_TANDEM_OPERATION_ID}",
+                },
             }
             for name in dict.fromkeys(server_names)
         }
@@ -213,6 +216,9 @@ def run_cli_chat(args: Namespace) -> int:
     credential_env_var = None
     mcp_servers = list(getattr(args, "mcp_server", []) or [])
     no_mcp = bool(getattr(args, "no_mcp", False))
+    operation_id = getattr(args, "operation_id", None)
+    if operation_id:
+        environment["MOST_TANDEM_OPERATION_ID"] = operation_id
     if no_mcp and mcp_servers:
         raise SystemExit("--no-mcp cannot be combined with --mcp-server")
     if credential_provider:
@@ -306,6 +312,7 @@ def run_cli_chat(args: Namespace) -> int:
             profile=getattr(args, "profile", None),
             pipeline_id=getattr(args, "pipeline_id", None),
             stage_index=getattr(args, "stage_index", None),
+            operation_id=getattr(args, "operation_id", None),
         )
         execution = manager.prepare(request, configuration, session)
         execution, response = manager.execute(
@@ -324,6 +331,10 @@ def run_cli_chat(args: Namespace) -> int:
             sequence_number=len(messages),
             result_type="response",
             parent_result_id=session.active_result_id,
+            profile=getattr(args, "profile", None),
+            pipeline_id=getattr(args, "pipeline_id", None),
+            stage_index=getattr(args, "stage_index", None),
+            operation_id=getattr(args, "operation_id", None),
         )
         sessions.add_result(result, content)
         session.active_result_id = result.id
