@@ -96,6 +96,21 @@ def test_cli_chat_sensitive_einfra_guard_uses_catalog():
         _enforce_einfra_model_sensitivity("unknown-model", "sensitive", Path("ai-catalog.yaml"))
 
 
+def test_unified_chat_model_selection_errors_are_clean(monkeypatch, tmp_path: Path):
+    from most import cli
+
+    monkeypatch.setattr(cli, "run_chat", lambda args: 0)
+    args = Namespace(
+        no_refresh=True, catalog=tmp_path / "catalog.yaml", discovered=tmp_path / "discovered.yaml",
+        provider="einfra", model="missing", route="auto", sensitivity_tier="normal",
+        data_root=tmp_path, prompt="hello", title="test",
+    )
+    args.catalog.write_text("providers: []\n", encoding="utf-8")
+    args.discovered.write_text("providers: []\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="cannot use einfra/missing"):
+        cli._run_unified_chat(args)
+
+
 def test_cerit_chat_sensitive_guard_accepts_legacy_namespace_without_catalog():
     from most.cli import _enforce_einfra_model_sensitivity
 

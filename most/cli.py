@@ -380,11 +380,14 @@ def _run_unified_chat(args: argparse.Namespace) -> int:
 
     if not args.no_refresh:
         refresh_if_stale(args.catalog, args.discovered, max_age_hours=args.max_age_hours)
-    option = select_model(
-        load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route,
-        required_capability="chat",
-        sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
-    )
+    try:
+        option = select_model(
+            load_model_options(args.catalog, args.discovered), args.provider, args.model, args.route,
+            required_capability="chat",
+            sensitivity_tier=getattr(args, "sensitivity_tier", "normal"),
+        )
+    except ValueError as exc:
+        raise SystemExit(f"cannot use {args.provider or 'auto'}/{args.model}: {exc}") from exc
     adapter_type = option["adapter_type"]
     if adapter_type == "openai-api":
         return run_gpt_chat(argparse.Namespace(
