@@ -10,8 +10,8 @@ from pathlib import Path
 from .adapters import Connectivity, Observability
 from .cli_adapter import CLIAdapter
 from .credentials import resolve_provider_credential
-from .models import AIConfiguration, AIRequest, IntermediateResult, new_id
 from .journal import validate_operation_id
+from .models import AIConfiguration, AIRequest, IntermediateResult, new_id
 from .services import ConfigurationService, ExecutionManager, SessionService
 
 CLI_EXECUTABLES = {
